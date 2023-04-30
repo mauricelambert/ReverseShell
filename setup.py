@@ -3,7 +3,7 @@ from glob import glob
 
 setup(
     name="ReverseShell",
-    version="0.0.2",
+    version="0.0.3",
     py_modules=["ReverseShell"],
     install_requires=["PythonToolsKit"],
     author="Maurice Lambert",
@@ -32,7 +32,7 @@ setup(
         "Operating System :: MacOS",
         "Topic :: Security",
     ],
-    scripts=glob("clients\\*.py"),
+    scripts=glob("clients/*.py"),
     python_requires=">=3.8",
     entry_points={
         "console_scripts": ["ReverseShell = ReverseShell:main"],
