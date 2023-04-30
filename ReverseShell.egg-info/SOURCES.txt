@@ -1,0 +1,10 @@
+MANIFEST.in
+README.md
+ReverseShell.py
+setup.py
+ReverseShell.egg-info/PKG-INFO
+ReverseShell.egg-info/SOURCES.txt
+ReverseShell.egg-info/dependency_links.txt
+ReverseShell.egg-info/entry_points.txt
+ReverseShell.egg-info/requires.txt
+ReverseShell.egg-info/top_level.txt
