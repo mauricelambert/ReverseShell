@@ -61,8 +61,9 @@ from os import getcwd, environ, listdir, name
 
 def get_executables():
     return [
-        listdir(directory)
+        file
         for directory in environ["PATH"].split(":" if name != "nt" else ";")
+        for file in listdir(directory)
         if exists(directory)
     ]
 

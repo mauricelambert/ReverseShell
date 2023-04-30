@@ -93,8 +93,9 @@ def rc4(plaintext: bytes, decrypt: bool = False) -> bytes:
 
 def get_executables():
     return [
-        listdir(directory)
+        file
         for directory in environ["PATH"].split(":" if name != "nt" else ";")
+        for file in listdir(directory)
         if exists(directory)
     ]
 

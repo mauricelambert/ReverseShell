@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -94,6 +94,8 @@ class ReverseShell(Cmd, BaseRequestHandler):
     prompt: str = "~$ "
     _set: bool = False
     color: bool = True
+    executables: List[str] = []
+    files: List[str] = []
 
     def __init__(
         self,
@@ -102,8 +104,6 @@ class ReverseShell(Cmd, BaseRequestHandler):
         encoding: str = "utf-8" if name != "nt" else "cp437",
     ):
         self.encoding = encoding
-        self.files: List[str] = []
-        self.executables: List[str] = []
         self.key = key and self.init_key(key)
         Cmd.__init__(self)
         BaseRequestHandler.__init__(self, *args)
@@ -163,8 +163,8 @@ class ReverseShell(Cmd, BaseRequestHandler):
             if self.color
             else f"{hostname}@{user}:{cwd}$ "
         )
-        self.executables = data.get("executables", [])
-        self.files = data.get("files", [])
+        self.__class__.executables = data.get("executables", [])
+        self.__class__.files = data.get("files", [])
         ReverseShell._set = True
 
     def parse_data(self, data: bytes) -> str:
