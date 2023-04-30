@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ReverseShell
-Version: 0.0.1
+Version: 0.0.2
 Summary: This package implements an advanced reverse shell console (supports: TCP, UDP, IRC, HTTP and DNS).
 Home-page: https://github.com/mauricelambert/ReverseShell
 Author: Maurice Lambert
@@ -25,6 +25,7 @@ Classifier: Operating System :: MacOS
 Classifier: Topic :: Security
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE.txt
 
 ![ReverseShell logo](https://mauricelambert.github.io/info/python/code/ReverseShell_small.png "ReverseShell logo")
 

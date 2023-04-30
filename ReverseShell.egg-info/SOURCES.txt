@@ -1,3 +1,4 @@
+LICENSE.txt
 MANIFEST.in
 README.md
 ReverseShell.py
@@ -8,3 +9,12 @@ ReverseShell.egg-info/dependency_links.txt
 ReverseShell.egg-info/entry_points.txt
 ReverseShell.egg-info/requires.txt
 ReverseShell.egg-info/top_level.txt
+clients/shellclientdns.py
+clients/shellclienthttp_advanced.py
+clients/shellclienthttps_advanced.py
+clients/shellclienthttpsencrypt_advanced.py
+clients/shellclientsocketirc.py
+clients/shellclientsockettcp.py
+clients/shellclienttcp.py
+clients/shellclienttcp_advanced.py
+clients/shellclientudp.py
