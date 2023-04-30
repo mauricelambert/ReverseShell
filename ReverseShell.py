@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -60,6 +60,7 @@ print(copyright)
 
 from cmd import Cmd
 from sys import exit
+from os.path import join
 from socket import socket
 from os import urandom, name
 from functools import partial
@@ -114,11 +115,12 @@ class ReverseShell(Cmd, BaseRequestHandler):
         """
 
         data = self.sock.recv(65535)
-        self.sock.setblocking(False)
+        # self.sock.setblocking(False)
+        self.sock.settimeout(0.5)
         while True:
             try:
                 data += self.sock.recv(65535)
-            except (BlockingIOError, SSLWantReadError):
+            except (BlockingIOError, SSLWantReadError, TimeoutError) as e:
                 break
 
         self.sock.setblocking(True)
@@ -205,7 +207,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
             x
             for x in self.executables
             + self.files
-            + ["./" + file for file in self.files]
+            + [join(".", file) for file in self.files]
             if x.startswith(startfilename)
         ]
 
@@ -642,9 +644,7 @@ def parser() -> Namespace:
     This function parses command line arguments.
     """
 
-    arguments = ArgumentParser(
-        description="Advanced reverse shell console."
-    )
+    arguments = ArgumentParser(description="Advanced reverse shell console.")
     protocol = arguments.add_mutually_exclusive_group()
     arguments_add_argument = arguments.add_argument
     protocol_add_argument = protocol.add_argument

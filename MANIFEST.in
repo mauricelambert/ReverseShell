@@ -1,3 +1,5 @@
 include *.md
 include *.txt
+include *.key
+include *.crt
 include clients/*.py

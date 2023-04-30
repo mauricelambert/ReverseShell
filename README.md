@@ -20,6 +20,8 @@ This package implements an advanced reverse shell console (supports: TCP, UDP, I
      - Print colored hostname, user and current directory
      - Auto-completion (executables in PATH and files in current directory)
      - Updatable any time you send the specific packet
+ - Auto-restart for TCP client
+ - Very large TCP packet (greater than TCP Window) is working
 
 You can read multiples POC for reverse shell client written in python in the *clients* directory.
 
