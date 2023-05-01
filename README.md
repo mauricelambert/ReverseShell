@@ -22,6 +22,7 @@ This package implements an advanced reverse shell console (supports: TCP, UDP, I
      - Updatable any time you send the specific packet
  - Auto-restart for TCP client
  - Very large TCP packet (greater than TCP Window) is working
+ - Check if command exists (only with advanced reverse shell features)
 
 You can read multiples POC for reverse shell client written in python in the *clients* directory.
 
@@ -80,6 +81,10 @@ with ReverseShellTcp(address=("127.0.0.1", 1337), ssl=True, cert="server.crt", k
 
 ![ReverseShell](https://mauricelambert.github.io/info/python/security/ReverseShell.png "ReverseShell")
 
+## Contributions
+
+You are welcome to contribute ! Beginner, intermediate and advanced developpers can contribute to this repository. Python developpers, system administrators, network administrators, web developpers and compiled language developpers can contribute. See the [issues](https://github.com/mauricelambert/ReverseShell/issues) to know what we need.
+
 ## Links
 
  - [Github Page](https://github.com/mauricelambert/ReverseShell)
@@ -91,18 +96,18 @@ with ReverseShellTcp(address=("127.0.0.1", 1337), ssl=True, cert="server.crt", k
 
 ```text
 usage: ReverseShell.py [-h] [--udp | --tcp | --multi-tcp] [--http | --dns | --irc] [--no-color] [--key KEY] [--cert CERT] [--private PRIVATE] [--ip IP]
-                       [--port PORT] [--encoding ENCODING] [--ssl]
+                       [--port PORT] [--encoding ENCODING] [--ssl] [--no-timeout]
 
-Reverse Shell with high level feature
+Advanced reverse shell console.
 
 options:
   -h, --help            show this help message and exit
   --udp, -u             Use UDP socket.
   --tcp, -t             Use TCP socket.
-  --multi-tcp, -T       Create TCP socket for each command and response.
+  --multi-tcp, -T       Create TCP socket for each command and responses.
   --http, -H            Use HTTP requests and responses.
   --dns, -d             Use DNS requests and responses.
-  --irc, -I             Use IRC requests and responses.
+  --irc, -I             Use IRC requests and response.
   --no-color, --color, -C
                         Do not use color
   --key KEY, -k KEY     Add a key to encrypt with RC4.
@@ -114,6 +119,8 @@ options:
   --encoding ENCODING, -e ENCODING
                         The reverse shell encoding used by client.
   --ssl, -s             Use SSL over TCP socket.
+  --no-timeout, -m      Faster response but TCP data larger than Window maximum size will not work. You should use this argument with standard/basic
+                        reverse shell like netcat.
 ```
 
 ## Licence

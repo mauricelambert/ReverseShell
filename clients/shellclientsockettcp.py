@@ -53,6 +53,7 @@ from socket import socket
 from contextlib import suppress
 from subprocess import run, PIPE
 
+
 def sendall(data):
     chunk = data[:30000]
     data = data[30000:]
@@ -60,6 +61,7 @@ def sendall(data):
         s.sendall(chunk)
         chunk = data[:30000]
         data = data[30000:]
+
 
 while True:
     with suppress(Exception):

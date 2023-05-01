@@ -3,3 +3,6 @@ include *.txt
 include *.key
 include *.crt
 include clients/*.py
+include oneliners/*.py
+include oneliners/*.sh
+include minifiers/*.py

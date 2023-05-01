@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -60,16 +60,17 @@ print(copyright)
 
 from cmd import Cmd
 from sys import exit
-from os.path import join
 from socket import socket
-from os import urandom, name
 from functools import partial
 from contextlib import suppress
+from os.path import split, splitext
 from random import randint, choices
 from collections.abc import Callable
 from shlex import split as shellsplit
 from json import JSONDecodeError, loads
+from platform import system as platform
 from string import ascii_letters, digits
+from os import urandom, name, system as shell
 from typing import TypeVar, List, Dict, Tuple
 from argparse import ArgumentParser, Namespace
 from base64 import b64encode, b64decode, b16decode, b16encode
@@ -92,19 +93,24 @@ class ReverseShell(Cmd, BaseRequestHandler):
     data to send with the key.
     """
 
-    prompt: str = "~$ "
     _set: bool = False
     color: bool = True
-    executables: List[str] = []
+    prompt: str = "~$ "
     files: List[str] = []
+    use_timeout: bool = True
+    target_system: str = None
+    executables: List[str] = []
+    target_is_windows: bool = None
+    is_windows: bool = name == "nt"
+    encoding: str = "utf-8" if name != "nt" else "cp437"
 
     def __init__(
         self,
         *args,
         key: bytes = None,
-        encoding: str = "utf-8" if name != "nt" else "cp437",
+        encoding: str = None,
     ):
-        self.encoding = encoding
+        self.encoding = encoding or self.encoding
         self.key = key and self.init_key(key)
         Cmd.__init__(self)
         BaseRequestHandler.__init__(self, *args)
@@ -115,12 +121,15 @@ class ReverseShell(Cmd, BaseRequestHandler):
         """
 
         data = self.sock.recv(65535)
-        # self.sock.setblocking(False)
-        self.sock.settimeout(0.5)
+        if self.use_timeout:
+            self.sock.settimeout(0.5)
+        else:
+            self.sock.setblocking(False)
+
         while True:
             try:
                 data += self.sock.recv(65535)
-            except (BlockingIOError, SSLWantReadError, TimeoutError) as e:
+            except (BlockingIOError, SSLWantReadError, TimeoutError):
                 break
 
         self.sock.setblocking(True)
@@ -132,6 +141,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
         """
 
         request = self.request
+        self.default_sender = True
         if isinstance(request, tuple):
             sock = self.sock = request[1]
             data = request[0]
@@ -155,6 +165,14 @@ class ReverseShell(Cmd, BaseRequestHandler):
         self.hostname = hostname = data.get("hostname", self.client_address[0])
         self.user = user = data.get("user", "user")
         self.current_directory = cwd = data.get("cwd", "~")
+        self.__class__.target_system = system = data.get("system", platform())
+        self.__class__.target_is_windows = is_windows = system == "Windows"
+
+        if is_windows:
+            self.__class__.encoding = "cp437"
+        else:
+            self.__class__.encoding = "utf-8"
+
         ReverseShell.prompt = (
             (
                 "\x1b[48;2;50;50;50m"
@@ -165,9 +183,24 @@ class ReverseShell(Cmd, BaseRequestHandler):
             if self.color
             else f"{hostname}@{user}:{cwd}$ "
         )
-        self.__class__.executables = data.get("executables", [])
-        self.__class__.files = data.get("files", [])
+
+        self.__class__.executables = executables = data.get("executables", [])
+        self.__class__.files = files = data.get("files", [])
         ReverseShell._set = True
+
+        if not is_windows:
+            return None
+
+        for name, list_ in {
+            "executables": executables,
+            "files": files,
+        }.items():
+            final_list = []
+            for element in list_:
+                element = element.casefold()
+                final_list.append(element)
+                final_list.append(splitext(element)[0])
+            setattr(self.__class__, name, final_list)
 
     def parse_data(self, data: bytes) -> str:
         """
@@ -184,7 +217,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
                 pass
             else:
                 self.defined_context(data)
-                self.default("\x06")
+                self.default("\x06", False)
                 return b""
 
         if not self._set:
@@ -207,16 +240,89 @@ class ReverseShell(Cmd, BaseRequestHandler):
             x
             for x in self.executables
             + self.files
-            + [join(".", file) for file in self.files]
+            + ["./" + f for f in self.files]
             if x.startswith(startfilename)
         ]
 
     completedefault = completenames
 
-    def default(self, arg: str) -> None:
+    def default(self, arg: str, check: bool = True) -> None:
         """
         This method sends data to socket shell client.
         """
+
+        command_splitted = shellsplit(arg)
+        if (
+            check
+            and command_splitted
+            and self.executables
+            and split(command_splitted[0])[1] == command_splitted[0]
+            and (
+                (
+                    self.target_is_windows
+                    and command_splitted[0].casefold()
+                    not in (
+                        "quit",
+                        "exit",
+                        "cls",
+                        "dir",
+                        "copy",
+                        "move",
+                        "if",
+                        "echo",
+                        "for",
+                        *self.executables,
+                        *self.files,
+                    )
+                )
+                or (
+                    not self.target_is_windows
+                    and command_splitted[0]
+                    not in (
+                        "quit",
+                        "exit",
+                        "clear",
+                        "if",
+                        "then",
+                        "else",
+                        "elif",
+                        "fi",
+                        "case",
+                        "esac",
+                        "for",
+                        "select",
+                        "while",
+                        "until",
+                        "do",
+                        "done",
+                        "in",
+                        "function",
+                        "time",
+                        "{",
+                        "}",
+                        "!",
+                        "[[",
+                        "]]",
+                        "coproc",
+                        "compgen",
+                        *self.executables,
+                        *self.files,
+                    )
+                )
+            )
+        ):
+            confirm = input(
+                "Executable not found, are you sure you want"
+                " send it ? [Y/N/yes/no] "
+            ).casefold()
+            while confirm not in ("y", "n", "yes", "no"):
+                confirm = input(
+                    "Executable not found, are you sure you want"
+                    " send it ? [Y/N/yes/no] "
+                ).casefold()
+            if confirm in ("n", "no"):
+                self.cmdloop()
+                return None
 
         if self.key:
             data = self.encrypt(arg.encode(self.encoding))
@@ -234,6 +340,28 @@ class ReverseShell(Cmd, BaseRequestHandler):
             return True
         else:
             return False
+
+    if is_windows:
+
+        def do_cls(self, arg: str) -> bool:
+            """
+            This method clear console on windows.
+            """
+
+            shell("cls")
+            self.cmdloop()
+            return None
+
+    else:
+
+        def do_clear(self, arg: str) -> bool:
+            """
+            This method clear console on windows.
+            """
+
+            shell("clear")
+            self.cmdloop()
+            return None
 
     def do_quit(self, arg: str) -> bool:
         """
@@ -424,25 +552,29 @@ class IrcReverseShell(ReverseShell):
         self.__class__.parse_data = self.parse_data_step0
         return ""
 
-    def default(self, data: str) -> None:
+    def default(self, data: str, *args, **kwargs) -> None:
         """
         This method generates IRC response.
         """
 
-        self.username = getattr(self, "username", None) or bytes(
-            choices(alphanum, k=randint(4, 10))
-        )
-        sender = self.sender
-        self.sender = lambda x: sender(
-            b":"
-            + self.username
-            + b" PRIVMSG "
-            + self.channels[0]
-            + b" :"
-            + b64encode(x)
-            + b"\r\n"
-        )
-        super().default(data)
+        if self.default_sender:
+            self.username = getattr(self, "username", None) or bytes(
+                choices(alphanum, k=randint(4, 10))
+            )
+
+            sender = self.sender
+            self.sender = lambda x: sender(
+                b":"
+                + self.username
+                + b" PRIVMSG "
+                + self.channels[0]
+                + b" :"
+                + b64encode(x)
+                + b"\r\n"
+            )
+            self.default_sender = False
+
+        super().default(data, *args, **kwargs)
 
     parse_data = parse_data_step0
 
@@ -469,7 +601,7 @@ class DnsReverseShell(ReverseShell):
 
         return super().parse_data(data)
 
-    def default(self, data: str) -> None:
+    def default(self, data: str, *args, **kwargs) -> None:
         """
         This method generates HTTP response.
         """
@@ -496,13 +628,16 @@ class DnsReverseShell(ReverseShell):
             )
             return query
 
-        sender = self.sender
-        self.sender = lambda x: sender(
-            self.dns_id
-            + b"\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00"
-            + generate_query(x)
-        )
-        super().default(data)
+        if self.default_sender:
+            sender = self.sender
+            self.sender = lambda x: sender(
+                self.dns_id
+                + b"\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00"
+                + generate_query(x)
+            )
+            self.default_sender = False
+
+        super().default(data, *args, **kwargs)
 
 
 class HttpReverseShell(ReverseShell):
@@ -518,23 +653,26 @@ class HttpReverseShell(ReverseShell):
 
         return super().parse_data(data.split(b"\r\n\r\n", 1)[1])
 
-    def default(self, data: str) -> None:
+    def default(self, data: str, *args, **kwargs) -> None:
         """
         This method generates HTTP response.
         """
 
-        sender = self.sender
-        self.sender = lambda x: sender(
-            b"HTTP/1.0 200 OK\r\nContent-Type: {type}\r\n".replace(
-                b"{type}",
-                b"octect/stream" if self.key else b"text/plain; charset=utf-8",
+        if self.default_sender:
+            sender = self.sender
+            self.sender = lambda x: sender(
+                b"HTTP/1.0 200 OK\r\nContent-Type: {type}\r\n".replace(
+                    b"{type}",
+                    b"octect/stream" if self.key else b"text/plain; charset=utf-8",
+                )
+                + b"Content-Length: {length}\r\n\r\n".replace(
+                    b"{length}", str(len(x)).encode()
+                )
+                + x
             )
-            + b"Content-Length: {length}\r\n\r\n".replace(
-                b"{length}", str(len(x)).encode()
-            )
-            + x
-        )
-        super().default(data)
+            self.default_sender = False
+
+        super().default(data, *args, **kwargs)
 
 
 class ReverseShellTcp(TCPServer):
@@ -716,11 +854,20 @@ def parser() -> Namespace:
     arguments_add_argument(
         "--encoding",
         "-e",
-        default="utf-8" if name != "nt" else "cp437",
         help="The reverse shell encoding used by client.",
     )
     arguments_add_argument(
         "--ssl", "-s", action="store_true", help="Use SSL over TCP socket."
+    )
+    arguments_add_argument(
+        "--no-timeout",
+        "-m",
+        action="store_true",
+        help=(
+            "Faster response but TCP data larger than Window maximum"
+            " size will not work. You should use this argument with "
+            "standard/basic reverse shell like netcat."
+        ),
     )
     return arguments.parse_args()
 
@@ -734,6 +881,7 @@ def main() -> int:
     arguments = parser()
 
     ReverseShell.color = arguments.no_color
+    ReverseShell.use_timeout = not arguments.no_timeout
 
     if arguments.udp:
         class_: Callable = partial(
