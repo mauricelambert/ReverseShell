@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ReverseShell
-Version: 0.0.6
+Version: 0.0.7
 Summary: This package implements an advanced reverse shell console (supports: TCP, UDP, IRC, HTTP and DNS).
 Home-page: https://github.com/mauricelambert/ReverseShell
 Author: Maurice Lambert

