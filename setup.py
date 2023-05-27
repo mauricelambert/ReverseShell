@@ -3,7 +3,7 @@ from glob import glob
 
 setup(
     name="ReverseShell",
-    version="0.0.7",
+    version="0.1.0",
     py_modules=["ReverseShell"],
     install_requires=["PythonToolsKit"],
     author="Maurice Lambert",

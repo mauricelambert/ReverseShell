@@ -2,6 +2,7 @@ LICENSE.txt
 MANIFEST.in
 README.md
 ReverseShell.py
+file_version_info.txt
 server.crt
 server.key
 setup.cfg
@@ -17,6 +18,7 @@ clients/shellclienthttp_advanced.py
 clients/shellclienthttps_advanced.py
 clients/shellclienthttpsencrypt_advanced.py
 clients/shellclienthttpsencrypt_advanced2.py
+clients/shellclienthttpsencrypt_advanced_0_1_0.py
 clients/shellclientsocketirc.py
 clients/shellclientsockettcp.py
 clients/shellclienttcp.py
@@ -24,7 +26,9 @@ clients/shellclienttcp_advanced.py
 clients/shellclientudp.py
 minifiers/shellclienthttpsencrypt_advanced.py
 minifiers/shellclienthttpsencrypt_advanced2.py
+minifiers/shellclienthttpsencrypt_advanced_0_1_0.py
 oneliners/shellclienthttpsencrypt_advanced.py
 oneliners/shellclienthttpsencrypt_advanced.sh
 oneliners/shellclienthttpsencrypt_advanced2.py
 oneliners/shellclienthttpsencrypt_advanced2.sh
+oneliners/shellclienthttpsencrypt_advanced_0_1_0.py
