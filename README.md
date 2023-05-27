@@ -184,7 +184,7 @@ You are welcome to contribute ! Beginner, intermediate and advanced developpers 
  - [Documentation](https://mauricelambert.github.io/info/python/security/ReverseShell.html)
  - [Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.pyz)
  - [Windows Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.exe)
- - [Binary clients](https://github.com/mauricelambert/ReverseShell/releases/latest)
+ - [Binaries shell clients](https://github.com/mauricelambert/ReverseShell/releases/latest)
 
 ## Help
 
