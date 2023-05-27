@@ -61,7 +61,6 @@ This package implements an advanced reverse shell console (supports: TCP, UDP, I
  - Download multiples files on another temp socket (for parallelism, useful to export lot of data)
  - Waiting to execute command after receive it (using `Beep`, *socket timeout*, `Sleep`, *child process, async worker or thread end*, `print`)
  - Thread instead of process
- - Multiple IP addresses and ports to fail over when SOC teams block a destination on their firewalls
 
 ### Examples
 
@@ -185,6 +184,7 @@ You are welcome to contribute ! Beginner, intermediate and advanced developpers 
  - [Documentation](https://mauricelambert.github.io/info/python/security/ReverseShell.html)
  - [Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.pyz)
  - [Windows Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.exe)
+ - [Binary clients](https://github.com/mauricelambert/ReverseShell/releases/latest)
 
 ## Help
 
