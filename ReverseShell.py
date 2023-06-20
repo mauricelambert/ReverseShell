@@ -1606,6 +1606,7 @@ def parser() -> Namespace:
         "--port",
         "-p",
         default=1337,
+        type=int,
         help="UDP/TCP port to start the ReverseShell server.",
     )
     arguments_add_argument(
