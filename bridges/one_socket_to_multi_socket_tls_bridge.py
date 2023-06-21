@@ -65,15 +65,15 @@ context_server.load_cert_chain(certificate, join('..', 'server.key'))
 
 while True:
     with suppress(Exception):
+        socket_client = socket()
+        socket_client.connect(address_destination)
+        ssocket_client = context_client.wrap_socket(socket_client, server_hostname='localhost')
+
         while True:
             socket_server = create_server(address_server)
             socket_server.listen(1)
-
-            socket_client = socket()
-            ssocket_client = context_client.wrap_socket(socket_client, server_hostname='localhost')
             ssocket_server = context_server.wrap_socket(socket_server)
             connection, address = ssocket_server.accept()
-            ssocket_client.connect(address_destination)
 
             data = connection.recv(65535)
             connection.settimeout(0.5) if use_timeout else connection.setblocking(False)
@@ -83,13 +83,13 @@ while True:
                 except (BlockingIOError, TimeoutError):
                     break
             connection.setblocking(True)
-            
+
             ssocket_client.sendall(data)
             data = ssocket_client.recv(65535)
-            ssocket_client.close()
-            socket_client.close()
 
             connection.sendall(data)
             connection.close()
             ssocket_server.close()
             socket_server.close()
+
+        socket_client.close()

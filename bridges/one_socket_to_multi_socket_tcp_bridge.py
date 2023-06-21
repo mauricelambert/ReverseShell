@@ -47,34 +47,24 @@ license = __license__
 
 print(copyright)
 
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER
 from socket import socket, create_server
 from contextlib import suppress
-from os.path import join
 
 use_timeout = True
 
 address_server = ('127.0.0.1', 1337)
 address_destination = ('127.0.0.1', 1338)
-context_client = SSLContext(PROTOCOL_TLS_CLIENT)
-context_server = SSLContext(PROTOCOL_TLS_SERVER)
-
-certificate = join('..', 'server.crt')
-context_client.load_verify_locations(certificate)
-context_server.load_cert_chain(certificate, join('..', 'server.key'))
 
 while True:
     with suppress(Exception):
+        socket_client = socket()
+        socket_client.connect(address_destination)
+
         while True:
             socket_server = create_server(address_server)
             socket_server.listen(1)
-
-            socket_client = socket()
-            ssocket_client = context_client.wrap_socket(socket_client, server_hostname='localhost')
-            ssocket_server = context_server.wrap_socket(socket_server)
-            connection, address = ssocket_server.accept()
-            ssocket_client.connect(address_destination)
-
+            connection, address = socket_server.accept()
+            
             data = connection.recv(65535)
             connection.settimeout(0.5) if use_timeout else connection.setblocking(False)
             while True:
@@ -84,12 +74,11 @@ while True:
                     break
             connection.setblocking(True)
             
-            ssocket_client.sendall(data)
-            data = ssocket_client.recv(65535)
-            ssocket_client.close()
-            socket_client.close()
-
+            socket_client.sendall(data)
+            data = socket_client.recv(65535)
+            
             connection.sendall(data)
             connection.close()
-            ssocket_server.close()
             socket_server.close()
+
+        socket_client.close()

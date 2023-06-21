@@ -89,5 +89,6 @@ while True:
 
         ssocket_client.close()
         socket_client.close()
+        connection.close()
         ssocket_server.close()
         socket_server.close()

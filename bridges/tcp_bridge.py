@@ -78,4 +78,5 @@ while True:
             connection.sendall(data)
 
         socket_client.close()
+        connection.close()
         socket_server.close()
