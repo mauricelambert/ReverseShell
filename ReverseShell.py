@@ -24,7 +24,7 @@ This package implements an advanced reverse shell
 console (supports: TCP, UDP, IRC, HTTP and DNS).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1512,8 +1512,6 @@ class ReverseShellSocketTcp:
             request = context.wrap_socket(
                 request,
                 server_side=True,
-                certfile=self.certfile,
-                keyfile=self.keyfile,
             )
 
         while self.run:
