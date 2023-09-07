@@ -56,7 +56,8 @@ from subprocess import run, PIPE
 from ssl import SSLContext, PROTOCOL_TLS_CLIENT
 
 context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join('..', 'server.crt'))
+context.load_verify_locations(join("..", "server.crt"))
+
 
 def sendall(data):
     chunk = data[:30000]
@@ -70,7 +71,7 @@ def sendall(data):
 while True:
     with suppress(Exception):
         s = socket()
-        ss = context.wrap_socket(s, server_hostname='localhost')
+        ss = context.wrap_socket(s, server_hostname="localhost")
         ss.connect(("127.0.0.1", 1337))
         data = b" "
         while True:

