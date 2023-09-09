@@ -96,7 +96,7 @@ from protocols import protocols as implemented_protocols
 from protocols.base import ApplicationBaseClass
 import protocols
 
-from encryption.rc4 import encrypt, decrypt, initialization as rc4_init
+from encryption.rc4 import encrypt, decrypt, initialization as rc4_init, update_key
 
 from tcp.utils import receiveall, sendall
 
@@ -289,12 +289,7 @@ class ReverseShell(Cmd, BaseRequestHandler):
         key = self.decompress(self.decode(data.get("key", "").encode()))
 
         if key and self.key:
-            key_base = self.key
-            key_length = len(self.key)
-            del self.key
-            self.__class__.key = bytes(
-                [key_base[i % key_length] ^ char for i, char in enumerate(key)]
-            )
+            self.key = self.__class__.key = update_key(self.key, key)
 
         if is_windows:
             self.__class__.encoding = "cp437"

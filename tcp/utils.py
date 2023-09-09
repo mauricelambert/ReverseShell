@@ -55,12 +55,13 @@ def receiveall(socket: socket, timeout: bool = True) -> bytes:
     This method gets all packets sent.
     """
 
-    data = socket.recv(65535)
-    socket.settimeout(0.5) if timeout else self.sock.setblocking(False)
+    new = data = socket.recv(65535)
+    socket.settimeout(0.5) if timeout else socket.setblocking(False)
 
-    while True:
+    while new:
         try:
-            data += socket.recv(65535)
+            new = socket.recv(65535)
+            data += new
         except (BlockingIOError, SSLWantReadError, TimeoutError):
             break
 

